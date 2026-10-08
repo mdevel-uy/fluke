@@ -1,9 +1,10 @@
 """Render recorded native VT cells; these are application captures, not mockups."""
 import json
+import sys
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
-root = Path(__file__).parent / "captures"
+root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent / "captures"
 font = ImageFont.truetype(r"C:\Windows\Fonts\consola.ttf", 16)
 bold_font = ImageFont.truetype(r"C:\Windows\Fonts\consolab.ttf", 16)
 palette = [(0,0,0),(205,49,49),(13,188,121),(229,229,16),(36,114,200),

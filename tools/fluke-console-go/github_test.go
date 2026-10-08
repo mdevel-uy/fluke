@@ -31,6 +31,17 @@ func init() {
 		}
 	}
 	issue := githubIssue{Number: 12, Title: "\x1b[31mExport JSON\x1b[0m", Body: "Export valid JSON", URL: "https://github.com/example/demo/issues/12"}
+	if os.Getenv("FLUKE_GH_BAD_ISSUE") == "1" {
+		issue.Number = 99
+	}
+	if os.Getenv("FLUKE_GH_BAD_URL") == "1" {
+		issue.URL = "https://github.com/other/demo/issues/12"
+	}
+	if len(args) >= 2 && args[0] == "issue" && args[1] == "view" && os.Getenv("FLUKE_GH_CHANGE_ORIGIN") == "1" {
+		if _, err := git(".", "remote", "set-url", "origin", "https://github.com/other/demo.git"); err != nil {
+			os.Exit(5)
+		}
+	}
 	if len(args) >= 2 && args[0] == "api" && args[1] == "user" {
 		fmt.Fprint(os.Stdout, `{"login":"fixture-user"}`)
 		os.Exit(0)
@@ -108,7 +119,8 @@ func TestGithubReadImportAndIsolation(t *testing.T) {
 	if len(m.github[repo].Issues) != 1 || m.github[repo].Loading {
 		t.Fatal("failed refresh lost last successful result")
 	}
-	r.Issue.URL += "-other"
+	r.Issue.Number, r.Number = 13, 13
+	r.Issue.URL = "https://github.com/example/demo/issues/13"
 	if err = os.Remove(filepath.Join(store.dir, "state.json")); err != nil {
 		t.Fatal(err)
 	}
@@ -118,6 +130,33 @@ func TestGithubReadImportAndIsolation(t *testing.T) {
 	m.receiveGithub(r)
 	if len(m.state.Tasks) != 1 || !strings.Contains(m.notice, "No se pudo guardar") {
 		t.Fatal("failed import changed local state")
+	}
+}
+
+func TestGithubIssueImportRejectsChangedOriginAndIdentity(t *testing.T) {
+	setupGithubFixture(t)
+	repo := dependencyTestRepo(t)
+	dependencyTestGit(t, repo, "remote", "add", "origin", "https://github.com/example/demo.git")
+	store, state, err := openStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.lock.Close()
+	m := newModel(store, state, repo)
+	m.receiveGithub(readGithub(repo, 0, ""))
+	for _, mode := range []string{"FLUKE_GH_CHANGE_ORIGIN", "FLUKE_GH_BAD_ISSUE", "FLUKE_GH_BAD_URL"} {
+		t.Run(mode, func(t *testing.T) {
+			dependencyTestGit(t, repo, "remote", "set-url", "origin", "https://github.com/example/demo.git")
+			t.Setenv(mode, "1")
+			r := readGithub(repo, 12, "Reviewed import")
+			if r.Snapshot.Error == "" {
+				t.Fatal("accepted changed origin/issue")
+			}
+			m.receiveGithub(r)
+			if len(m.state.Tasks) != 0 || len(m.github[repo].Issues) != 1 || m.github[repo].Error == "" || m.github[repo].Loading {
+				t.Fatal("failed import changed state/cache")
+			}
+		})
 	}
 }
 

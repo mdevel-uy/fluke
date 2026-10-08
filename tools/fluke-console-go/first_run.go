@@ -61,10 +61,8 @@ func (m *model) beginSetup(initial string, restart bool) {
 		if m.state.Setup.RepoDraft != "" {
 			initial = m.state.Setup.RepoDraft
 		}
-	} else if !restart && m.state.Orchestrator != nil && m.repo == "" {
-		step = 4
 	}
-	if step >= 5 && !dependencySamePath(m.repo, initial) {
+	if step >= 5 && initial != "" && !dependencySamePath(m.repo, initial) {
 		step = 4 // Recheck the chosen repository when setup resumes from another folder.
 	}
 	m.closePanels()
@@ -237,6 +235,9 @@ func (m *model) setupKey(v tea.KeyPressMsg) tea.Cmd {
 			m.saveSetupStep(1)
 		}
 	case 1:
+		if key == "enter" && p.scanning {
+			m.notice = localText("Checking your harnesses… You can keep choosing with ↑/↓.", "Comprobando tus harnesses… Podés seguir eligiendo con ↑/↓.")
+		}
 		if key == "r" {
 			return m.scanHarnesses()
 		}
@@ -367,6 +368,12 @@ func (m *model) setupKey(v tea.KeyPressMsg) tea.Cmd {
 		}
 		switch key {
 		case "enter":
+			if strings.TrimSpace(p.repoDraft) == "" {
+				if m.saveSetupStep(5) {
+					m.repo = ""
+				}
+				return nil
+			}
 			return m.checkSetupRepo()
 		case "ctrl+u":
 			p.repoDraft = ""
@@ -412,8 +419,8 @@ func (m *model) setupKey(v tea.KeyPressMsg) tea.Cmd {
 		}
 	case 6:
 		if key == "enter" {
-			if m.repo == "" || m.state.Orchestrator == nil {
-				m.notice = localText("Choose a harness and project first.", "Elegí un harness y proyecto primero.")
+			if m.state.Orchestrator == nil {
+				m.notice = localText("Choose a harness first.", "Elegí un harness primero.")
 				return nil
 			}
 			next := m.state
@@ -424,8 +431,14 @@ func (m *model) setupKey(v tea.KeyPressMsg) tea.Cmd {
 				if p.cancel != nil {
 					p.cancel()
 				}
-				m.view, m.pane = 0, 1
-				return tea.Batch(m.checkProvider(), m.drainQueue(), m.scheduleWorkerTick())
+				m.view, m.pane = 1, 1
+				m.home = m.repo == ""
+				if m.home {
+					m.view = 0
+					m.pane = 0
+					m.notice = localText("Ready. Press N to create a project or O to open one.", "Listo. Presioná N para crear un proyecto u O para abrir uno.")
+				}
+				return tea.Batch(m.checkProvider(), m.drainQueue(), m.scheduleWorkerTick(), m.queryPublishedPR("", false), m.scheduleGithubFollowup())
 			}
 		}
 	}

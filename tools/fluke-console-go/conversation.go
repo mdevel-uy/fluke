@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type orchestratorMessage struct {
@@ -62,6 +63,7 @@ func (m *model) readOrchestratorMessages() {
 		}
 		if duplicate {
 			s.ReportSeq = msg.Seq
+			s.ReplyStarted = time.Time{}
 			continue
 		}
 		next := withConversation(m.state, repo, ConversationMessage{Role: "fluke", Text: text, RunID: s.RunID, Seq: msg.Seq})
@@ -76,6 +78,7 @@ func (m *model) readOrchestratorMessages() {
 		}
 		m.state = next
 		s.ReportSeq = msg.Seq
+		s.ReplyStarted = time.Time{}
 	}
 }
 
@@ -134,15 +137,14 @@ func (m *model) sendChat(text string) tea.Cmd {
 	w.conversationPending.Store(m.chatDraft[repo] != "")
 	return tea.Batch(m.dispatchChats(), m.scheduleWorkerTick())
 }
-func (m *model) receiveChatSent(v chatSentResult) {
+func (m *model) receiveChatSent(v chatSentResult) bool {
 	s := m.orchestration[v.Repo]
-	if s != nil && s.RunID == v.RunID {
-		s.ChatWriting = false
+	current := s != nil && s.RunID == v.RunID && (s.PendingChat == nil || s.PendingChat.Seq == v.Seq)
+	if current {
 		if errors.Is(v.Err, errAutomaticDeferred) {
-			return
+			s.ChatWriting = false
+			return true
 		}
-		s.ChatSending = false
-		s.PendingChat = nil
 	}
 	next := m.state
 	next.Conversations = map[string][]ConversationMessage{}
@@ -150,8 +152,10 @@ func (m *model) receiveChatSent(v chatSentResult) {
 		next.Conversations[repo] = messages
 	}
 	next.Conversations[v.Repo] = append([]ConversationMessage{}, m.state.Conversations[v.Repo]...)
+	found := false
 	for i, msg := range next.Conversations[v.Repo] {
-		if msg.Role == "human" && msg.RunID == v.RunID && msg.Seq == v.Seq {
+		if msg.Role == "human" && msg.RunID == v.RunID && msg.Seq == v.Seq && msg.Delivery == "pending" {
+			found = true
 			next.Conversations[v.Repo][i].Delivery = "sent"
 			if v.Err != nil {
 				next.Conversations[v.Repo][i].Delivery = "uncertain"
@@ -159,20 +163,46 @@ func (m *model) receiveChatSent(v chatSentResult) {
 			break
 		}
 	}
+	if !found {
+		return true
+	}
 	if err := m.store.save(next); err != nil {
+		if current {
+			// Keep the pending record, but never retry a possibly delivered write.
+			s.PendingChat = &v
+			s.PendingChat.Err = errors.New("delivery could not be saved")
+			s.ChatWriting, s.ChatSending = true, true
+		}
 		m.notice = uiText("Revisá la sesión: el envío no pudo confirmarse en el estado.")
-		return
+		return false
 	}
 	m.state = next
+	if current {
+		s.ChatWriting, s.ChatSending, s.PendingChat = false, false, nil
+		if v.Err == nil {
+			s.ReplyStarted = time.Now()
+		}
+	}
 	if v.Err != nil {
 		m.notice = uiText("Envío incierto. Revisá la sesión antes de reenviar.")
-		return
+		return true
 	}
 	if w := m.terminalFor("fluke:" + v.Repo); w != nil {
 		w.conversationPending.Store(m.chatDraft[v.Repo] != "")
 	}
 	m.refreshOrchestrators(false)
 	m.notice = "Mensaje enviado a Fluke."
+	return true
+}
+
+func (m *model) failPendingChat(repo string) bool {
+	s := m.orchestration[repo]
+	if s == nil || s.PendingChat == nil {
+		return true
+	}
+	result := *s.PendingChat
+	result.Err = errors.New("session ended before delivery was confirmed")
+	return m.receiveChatSent(result)
 }
 func conversationTranscript(messages []ConversationMessage, w, h int) string {
 	return conversationTranscriptAt(messages, w, h, 0)
@@ -186,11 +216,15 @@ func conversationTranscriptAt(messages []ConversationMessage, w, h, offset int) 
 func (m *model) dispatchChats() tea.Cmd {
 	var commands []tea.Cmd
 	for repo, s := range m.orchestration {
-		if s.PendingChat == nil || s.ChatWriting {
+		if s.PendingChat == nil {
 			continue
 		}
 		w := m.terminalFor("fluke:" + repo)
 		if w == nil || w.ProcessExited() {
+			m.failPendingChat(repo)
+			continue
+		}
+		if s.ChatWriting || s.PendingChat.Err != nil {
 			continue
 		}
 		title, screen := w.agentSignals()

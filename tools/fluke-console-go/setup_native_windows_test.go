@@ -15,6 +15,18 @@ import (
 )
 
 func TestNativeWindowsFirstRunEnglish(t *testing.T) {
+	testNativeWindowsFirstRun(t, false, false)
+}
+
+func TestNativeWindowsFirstRunWithoutProject(t *testing.T) {
+	testNativeWindowsFirstRun(t, true, false)
+}
+
+func TestNativeWindowsSetupSignalEffects(t *testing.T) {
+	testNativeWindowsFirstRun(t, true, true)
+}
+
+func testNativeWindowsFirstRun(t *testing.T, global, observeSignal bool) {
 	binary := os.Getenv("FLUKE_CONSOLE_TEST_BINARY")
 	if binary == "" {
 		t.Skip("build native executable and set FLUKE_CONSOLE_TEST_BINARY")
@@ -61,7 +73,10 @@ func TestNativeWindowsFirstRunEnglish(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			launchArgs := []string{"-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", launcher, "-Repo", repo, "-StateDir", dir, "-Here"}
+			launchArgs := []string{"-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", launcher, "-StateDir", dir, "-Here"}
+			if !global {
+				launchArgs = append(launchArgs, "-Repo", repo)
+			}
 			for i := 0; i < len(arguments); i++ {
 				if arguments[i] == "--lang" && i+1 < len(arguments) {
 					launchArgs = append(launchArgs, "-Language", arguments[i+1])
@@ -132,7 +147,11 @@ func TestNativeWindowsFirstRunEnglish(t *testing.T) {
 		}
 		return input, wait, screen, done
 	}
-	input, wait, screen, done := launch("--repo", repo, "--state-dir", dir, "--lang", "en", "--setup")
+	arguments := []string{"--state-dir", dir, "--lang", "en"}
+	if !global {
+		arguments = append(arguments, "--repo", repo)
+	}
+	input, wait, screen, done := launch(append(arguments, "--setup")...)
 	wait("INITIAL SETUP")
 	wait("START")
 	// Motion must be visible on a real terminal before a full second elapses.
@@ -168,6 +187,29 @@ func TestNativeWindowsFirstRunEnglish(t *testing.T) {
 	}
 	wait("ready · signed in")
 	captureNativeScreen(t, screen, "go-setup-01")
+	if observeSignal {
+		started := time.Now()
+		titleChanged, borderChanged, recovered := false, false, false
+		for time.Since(started) < 16*time.Second {
+			frame := screen.String()
+			if strings.Contains(frame, "01 / ░OUR HARNESSES") && !titleChanged {
+				titleChanged = true
+				t.Logf("native title effect observed after %s", time.Since(started).Round(time.Millisecond))
+			}
+			if strings.HasPrefix(frame, "┏─") && !borderChanged {
+				borderChanged = true
+				t.Logf("native border effect observed after %s", time.Since(started).Round(time.Millisecond))
+			}
+			if titleChanged && borderChanged && strings.Contains(frame, "01 / YOUR HARNESSES") && strings.HasPrefix(frame, "┏━") {
+				recovered = true
+				break
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		if !titleChanged || !borderChanged || !recovered {
+			t.Fatalf("native signal effects: title=%t border=%t recovered=%t\n%s", titleChanged, borderChanged, recovered, screen.String())
+		}
+	}
 	input(enter)
 	wait("THE ORCHESTRATOR")
 	captureNativeScreen(t, screen, "go-setup-02")
@@ -175,15 +217,19 @@ func TestNativeWindowsFirstRunEnglish(t *testing.T) {
 	wait("03 / GITHUB")
 	captureNativeScreen(t, screen, "go-setup-03")
 	input("\t\r")
-	wait("YOUR PROJECT")
+	wait("YOUR FIRST PROJECT")
 	input("\r")
 	wait("YOUR CREW")
 	input("\x152\r")
 	wait("WORKSPACE READY")
 	captureNativeScreen(t, screen, "go-setup-06")
 	input("\r")
-	wait("FLUKE / OVERVIEW")
-	wait("SESSIONS")
+	if global {
+		wait("YOUR PROJECTS")
+		wait("GLOBAL OVERVIEW")
+	} else {
+		wait("FLUKE FOLLOWS THE PROJECT")
+	}
 	input("\x11")
 	wait("Quit Fluke")
 	input("y")
@@ -204,11 +250,19 @@ func TestNativeWindowsFirstRunEnglish(t *testing.T) {
 	if realHarness != "" {
 		expectedProvider = realHarness
 	}
-	if saved.Language != "en" || saved.Setup == nil || !saved.Setup.Complete || saved.MaxWorkers != 2 || saved.Orchestrator == nil || saved.Orchestrator.Provider != expectedProvider || saved.Orchestrator.Executable != expectedExecutable || saved.Orchestrator.Model != expectedModel || len(saved.Projects) != 1 || !strings.EqualFold(filepath.Clean(saved.Projects[0]), filepath.Clean(repo)) {
+	projectsCorrect := len(saved.Projects) == 0
+	if !global {
+		projectsCorrect = len(saved.Projects) == 1 && strings.EqualFold(filepath.Clean(saved.Projects[0]), filepath.Clean(repo))
+	}
+	if saved.Language != "en" || saved.Setup == nil || !saved.Setup.Complete || saved.MaxWorkers != 2 || saved.Orchestrator == nil || saved.Orchestrator.Provider != expectedProvider || saved.Orchestrator.Executable != expectedExecutable || saved.Orchestrator.Model != expectedModel || !projectsCorrect {
 		t.Fatalf("first-run choices not persisted: %+v", saved)
 	}
-	input, wait, screen, done = launch("--repo", repo, "--state-dir", dir)
-	wait("FLUKE / OVERVIEW")
+	input, wait, screen, done = launch(arguments...)
+	if global {
+		wait("YOUR PROJECTS")
+	} else {
+		wait("FLUKE FOLLOWS THE PROJECT")
+	}
 	if strings.Contains(screen.String(), "INITIAL SETUP") {
 		t.Fatal("completed setup reopened")
 	}

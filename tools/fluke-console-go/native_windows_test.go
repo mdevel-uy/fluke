@@ -138,7 +138,7 @@ func TestNativeWindowsConfigAndTwoWorkers(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	wait("VISTA GLOBAL")
+	wait("FLUKE SIGUE EL PROYECTO")
 	input("\x1b[15~")
 	wait("CONFIGURACIÓN")
 	// Exercise Windows Terminal's Win32 input protocol, including navigation
@@ -320,6 +320,7 @@ func TestNativeWindowsConfigAndTwoWorkers(t *testing.T) {
 		t.Fatal(err)
 	}
 	input("\x1bOP")
+	input("\t") // The global home opens alerts in its attention panel.
 	wait("PARA REVISAR")
 	input("\x0bstart " + saved.Tasks[2].ID + "\r")
 	wait("Límite de workers alcanzado")
@@ -336,7 +337,7 @@ func TestNativeWindowsConfigAndTwoWorkers(t *testing.T) {
 	input("c")
 	wait("COMANDO > rework")
 	input("\x1b[112;59;0;1;0;1_") // F1 also leaves a prepared command.
-	wait("[Tab] Panel")
+	wait("TUS PROYECTOS")
 	input("\x1b[118;65;0;1;0;1_")
 	wait("ESTADO LOCAL")
 	input(terminalEscape())

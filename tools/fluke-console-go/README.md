@@ -37,7 +37,8 @@ Se verificó la compilación sin CGO para Linux amd64 y macOS arm64 el 2026-10-0
 - En Windows, `open-fluke.cmd` abre la aplicación en Windows Terminal. Acepta
   `-Repo ruta`, `-StateDir ruta`, `-Setup` y `-Language en/es`; `open-fluke.ps1 -Here` usa la consola actual.
   El launcher usa un comando codificado para conservar rutas con espacios.
-- F1: conversación con Fluke y vista global. F2: objetivo, plan y workers.
+- F1: todos los proyectos; N crea uno, O abre un repo, flechas eligen,
+  Enter abre tareas y C abre la conversación. F2: objetivo, plan y workers.
   F3: sesiones. F4: decisiones de producto/alcance. F5: configuración.
   Funcionan también desde configuración, GitHub y revisión. Alt+1–Alt+7 son
   alternativas cuando el equipo reserva las teclas de función.
@@ -99,7 +100,8 @@ Se verificó la compilación sin CGO para Linux amd64 y macOS arm64 el 2026-10-0
   PATH, sesión y catálogo locales, sin instalar CLIs ni consumir inferencia.
   Reconoce 24 comandos; por ahora Codex y Claude tienen adaptadores funcionales.
   La recomendación usa la instalación y el default compatible de Omarchy;
-  no fija proveedor ni versiones de modelos. Fuera de un repo se abre el selector.
+  no fija proveedor ni versiones de modelos. El repo inicial es opcional;
+  sin `--repo`, se abre la vista global después de configurar el harness.
 - F5 contiene: proveedor/CLI, ejecutable,
   modelo, argumentos y máximo global de workers. Enter/Ctrl+S guarda; Ctrl+U
   limpia el campo. Flechas eligen proveedor/modelo; cambiar proveedor limpia
@@ -420,6 +422,7 @@ manual. La pausa conserva archivos y detiene procesos;
 no garantiza un checkpoint interno de cada herramienta. Selección nativa y
 copia están implementadas; queda comprobarlas manualmente en el terminal del usuario.
 GitHub permite configurar la conexión, leer/importar issues y publicar/actualizar
-PRs; queda validar una publicación real y sincronizar estados. La ejecución en Linux/macOS, las tareas
+PRs y seguir sus estados; queda validar una publicación real y completar el
+ciclo de issues. La ejecución en Linux/macOS, las tareas
 largas y las mediciones bajo carga siguen pendientes. Compilar esos binarios
 no sustituye probar sus PTYs y procesos en esos sistemas.

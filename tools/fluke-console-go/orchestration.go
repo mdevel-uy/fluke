@@ -23,6 +23,7 @@ type orchestratorSession struct {
 	ChatWriting          bool
 	PendingChat          *chatSentResult
 	ChatSending          bool
+	ReplyStarted         time.Time
 	ReportSeq            uint64
 	Seq                  uint64
 	PendingAck           *orchestratorAck
@@ -136,6 +137,7 @@ func prepareOrchestrator(repo string, snapshot any) (string, string, error) {
 
 Tu sesión es %s. El objetivo principal es acompañar al humano: acordar un objetivo, convertirlo en un plan y coordinar su ejecución. Las terminales son una herramienta interna, no el centro del producto. Todos los archivos de este contrato están en esta misma carpeta y excluidos de Git.
 Antes de terminar cada turno, escribí update.json en esta misma carpeta usando temporal y rename. Formato: {"version":1,"run_id":"%s","seq":1,"message":"Tu mensaje al humano"}. Conservá run_id, incrementá seq en cada mensaje. message es la respuesta conversacional para la pantalla de Fluke. Mostrá solo lo importante: qué cambió, qué está bloqueado, qué necesita del humano y el próximo paso. Usá 2–6 líneas y como máximo 1200 caracteres; omití los puntos que no aporten. No incluyas comandos, transcripciones de herramientas, tokens, razonamiento interno ni narración de cada paso. No repitas el mismo estado ni generes mensajes por cada herramienta. Escribilo también cuando necesites esperar: sin ese archivo el humano solo verá actividad del sistema. Las actualizaciones no necesitan un ack.
+Para saludos o charla, respondé enseguida en update.json. No explores el repositorio ni propongas tareas hasta que el pedido lo necesite. Si vas a hacer un análisis largo, escribí primero una confirmación breve en ese canal.
 Si CODEX_SESSION_ID (o CODEX_THREAD_ID) está presente, obtené esa variable exacta con una herramienta y agregá native_session_id con su UUID a update.json para recuperar el historial. Omitilo si no existe; no inventes IDs ni vuelques otras variables de entorno.
 
 En conversation, los mensajes humanos con delivery=pending o uncertain no son nuevas órdenes confirmadas: esperá su entrega o pedí aclaración.

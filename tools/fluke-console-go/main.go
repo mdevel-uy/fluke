@@ -23,17 +23,24 @@ func defaultStateDir() string {
 }
 func run() error {
 	_ = setUILanguage("en")
-	repo := flag.String("repo", ".", uiText("Repositorio inicial"))
+	repo := flag.String("repo", "", "Open a repository; omit to start with all projects")
 	dir := flag.String("state-dir", defaultStateDir(), uiText("Directorio de estado"))
 	monochrome := flag.Bool("no-color", false, uiText("Interfaz sin colores"))
 	language := flag.String("lang", "", "Interface language: en or es")
 	setup := flag.Bool("setup", false, "Open first-run setup")
 	flag.Parse()
-	initial, err := expandUserPath(*repo)
-	if err != nil {
-		return err
+	initial, root := "", ""
+	if *repo != "" {
+		var err error
+		initial, err = expandUserPath(*repo)
+		if err != nil {
+			return err
+		}
+		root, err = repoPath(initial)
+		if err != nil {
+			return err
+		}
 	}
-	root, _ := repoPath(initial)
 	absolute, err := filepath.Abs(*dir)
 	if err != nil {
 		return err
@@ -67,7 +74,7 @@ func run() error {
 		return err
 	}
 	m := newModel(store, state, root)
-	if *setup || root == "" || state.Orchestrator == nil || state.Setup != nil && !state.Setup.Complete {
+	if *setup || state.Orchestrator == nil || state.Setup != nil && !state.Setup.Complete {
 		m.beginSetup(initial, *setup)
 	}
 	defer m.cleanup()

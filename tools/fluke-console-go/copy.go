@@ -7,6 +7,18 @@ import tea "charm.land/bubbletea/v2"
 func (m *model) copyFocused() tea.Cmd {
 	var text string
 	switch {
+	case m.projects.open:
+		text = m.projects.name + "\n" + m.projects.path
+	case m.home && m.view == 0:
+		if m.pane == 2 {
+			for _, item := range m.attentionItems() {
+				text += item.Repo + ": " + item.Summary + "\n\n"
+			}
+		} else {
+			for _, repo := range m.state.Projects {
+				text += repo + "\n" + m.projectActivity(repo) + "\n\n"
+			}
+		}
 	case m.review.open:
 		text = m.review.task.Title + "\n" + strings.Join(m.review.content(max(1, m.width-4)), "\n")
 	case m.view == 2 && !m.config && !m.githubOpen:

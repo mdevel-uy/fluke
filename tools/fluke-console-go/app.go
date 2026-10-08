@@ -32,6 +32,8 @@ type model struct {
 	store                              *Store
 	state                              State
 	repo                               string
+	home                               bool
+	projects                           projectEditor
 	terminals                          *windowManager
 	sessions                           map[string]string // durable task ID (or repo orchestrator) -> PTY window ID
 	width, height, view, selected      int
@@ -83,6 +85,12 @@ type model struct {
 func newModel(store *Store, state State, repo string) *model {
 	t := newWindowManager(100, 30)
 	m := &model{store: store, state: state, repo: repo, terminals: t, sessions: map[string]string{}, chatDraft: map[string]string{}, pane: 1, width: 100, height: 36, notice: uiText("Contame qué querés lograr. Fluke prepara el plan y coordina el trabajo.")}
+	m.home = repo == ""
+	if m.home {
+		m.pane = 0
+	} else {
+		m.view = 1
+	}
 	if state.Orchestrator == nil {
 		m.openConfig()
 	}
@@ -214,6 +222,10 @@ func (m *model) start(taskID string) tea.Cmd {
 }
 
 func (m *model) startSession(taskID string, background bool) tea.Cmd {
+	if taskID == "" && m.repo == "" {
+		m.notice = localText("Create or open a project from F1 first.", "Primero creá o abrí un proyecto desde F1.")
+		return nil
+	}
 	if m.preparing {
 		m.notice = uiText("Hay una sesión en preparación.")
 		return nil
@@ -235,6 +247,9 @@ func (m *model) startSession(taskID string, background bool) tea.Cmd {
 			m.focus("fluke:" + repo)
 			return nil
 		}
+		if !m.failPendingChat(repo) {
+			return nil
+		}
 		snapshot := m.orchestratorContext(repo)
 		language := m.state.Language
 		initialMessage := m.chatDraft[repo]
@@ -251,7 +266,7 @@ func (m *model) startSession(taskID string, background bool) tea.Cmd {
 		}
 		return func() tea.Msg {
 			runID, path, err := prepareOrchestrator(repo, snapshot)
-			prompt := "Run activo de Fluke: " + runID + ". Sos el orquestador de Fluke. Leé el contrato local " + filepath.Join(path, "contract.md") + " y su contexto. Organizá las tareas autorizadas usando el canal de órdenes del contrato. Proponé nuevos alcances para aprobación humana; no hagas merge. Cuando necesites esperar workers, terminá el turno: Fluke te notificará los cambios."
+			prompt := "Fluke · " + filepath.Base(repo) + " · Orchestrator\nRun activo de Fluke: " + runID + ". Sos el orquestador de Fluke. Leé el contrato local " + filepath.Join(path, "contract.md") + " y su contexto. Organizá las tareas autorizadas usando el canal de órdenes del contrato. Proponé nuevos alcances para aprobación humana; no hagas merge. Cuando necesites esperar workers, terminá el turno: Fluke te notificará los cambios."
 			if strings.TrimSpace(initialMessage) != "" {
 				prompt += "\nPedido inicial del humano: " + initialMessage
 			}
@@ -358,6 +373,9 @@ func (m *model) focus(key string) {
 	}
 }
 func (m *model) stop(key string) {
+	if strings.HasPrefix(key, "fluke:") && !m.failPendingChat(strings.TrimPrefix(key, "fluke:")) {
+		return
+	}
 	m.observeWorkers(true)
 	for i, w := range m.terminals.Windows {
 		if w.ID != m.sessions[key] {
@@ -378,6 +396,9 @@ func (m *model) stop(key string) {
 	m.notice = uiText("No existe esa sesión.")
 }
 func (m *model) cleanup() {
+	if m.projects.cancel != nil {
+		m.projects.cancel()
+	}
 	for _, cancel := range m.githubFollowupCancel {
 		cancel()
 	}
@@ -399,7 +420,16 @@ func (m *model) cleanup() {
 func (m *model) execute(line string) tea.Cmd {
 	verb, rest, _ := strings.Cut(strings.TrimSpace(line), " ")
 	rest = strings.TrimSpace(rest)
+	if m.repo == "" && (verb == "goal" || verb == "task" || verb == "issue" || verb == "decision" || verb == "fluke") {
+		m.notice = localText("Open a project from F1 first.", "Abrí un proyecto desde F1 primero.")
+		return nil
+	}
 	switch verb {
+	case "home":
+		m.closePanels()
+		m.home, m.view, m.pane, m.selected = true, 0, 0, 0
+	case "new":
+		m.openProjectEditor(true)
 	case "rework":
 		id, feedback, _ := strings.Cut(rest, "|")
 		return m.requestTaskChanges(strings.TrimSpace(id), feedback)
@@ -457,6 +487,7 @@ func (m *model) execute(line string) tea.Cmd {
 		}
 		if m.saveEdit(next, uiText("Repositorio seleccionado.")) {
 			m.repo = repo
+			m.home = false
 			m.selected = 0
 			m.chatScroll = 0
 		}
@@ -562,6 +593,9 @@ func (m *model) execute(line string) tea.Cmd {
 func (m *model) forward(msg tea.Msg) tea.Cmd { _, cmd := m.terminals.Update(msg); return cmd }
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch v := msg.(type) {
+	case projectResult:
+		m.receiveProject(v)
+		return m, nil
 	case setupPulse:
 		if m.setup.open {
 			if v.generation == m.setup.generation {
@@ -690,6 +724,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Batch(m.drainQueue(), m.scheduleWorkerTick())
 	case launchResult:
+		// Finishing preparation must not pull the user out of another project.
+		if m.home || v.repo != m.repo || m.projects.open || m.config || m.githubOpen || m.review.open || m.view == 3 && v.taskID == "" {
+			v.background = true
+		}
 		canceled := m.cancelPreparing
 		for _, task := range m.state.Tasks {
 			if task.ID == v.taskID && (task.Paused || m.state.PausedProjects[task.Repo] || task.Status == "accepted" || taskScopeError(m.state, task) != nil) {
@@ -798,6 +836,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(messages) == 0 || messages[len(messages)-1].Delivery != "sent" {
 					m.stop(key)
 					m.notice = uiText("La sesión se detuvo: el envío inicial no pudo confirmarse en el estado.")
+					if m.sessionAlive(key) {
+						m.notice = localText("Initial delivery could not be saved. The session is still open: check F3 before resending.", "El envío inicial no pudo guardarse. La sesión sigue abierta: revisá F3 antes de reenviar.")
+					}
 					return m, nil
 				}
 			}
@@ -809,8 +850,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.markConversationDraft()
 		}
 		m.refreshProjectContexts()
-		if v.taskID == "" {
-			m.view = 0
+		if v.taskID == "" && !v.background {
+			m.home = false
+			m.view = 1
 			m.pane = 1
 		} else if !v.background {
 			m.view = 2
@@ -826,7 +868,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		key := v.String()
 		if m.quitting {
 			if key == "y" || key == "s" {
-				if m.preparing || m.integratingTaskID != "" || m.publishingTaskID != "" {
+				if m.preparing || m.projects.busy || m.integratingTaskID != "" || m.publishingTaskID != "" {
 					m.notice = uiText("Esperá a que termine la preparación, integración o publicación.")
 					m.quitting = false
 					return m, nil
@@ -842,6 +884,14 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.setup.open && key != "ctrl+q" {
 			return m, m.setupKey(v)
 		}
+		if m.projects.open && key != "ctrl+q" {
+			if !m.projects.busy {
+				if handled, cmd := m.globalKey(key); handled {
+					return m, cmd
+				}
+			}
+			return m, m.projectEditorKey(v)
+		}
 		if key == "ctrl+q" {
 			m.quitting = true
 			return m, nil
@@ -853,7 +903,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.editWorkerMessage(v)
 		}
 		if m.review.open {
-			if key == "ctrl+r" {
+			if key == "ctrl+r" && m.review.task.ID != "" {
 				return m, m.queryPublishedPR(m.review.task.ID, true)
 			}
 			if m.review.publication != nil || m.review.publicationLoading {
@@ -1059,10 +1109,13 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.forward(msg)
 		}
-		if key == ":" {
+		if key == ":" && !(m.pane == 1 && (m.view == 0 && !m.home || m.view == 1 || m.view == 3)) {
 			line := ""
 			m.command = &line
 			return m, nil
+		}
+		if m.home && m.view == 0 {
+			return m, m.homeKey(v)
 		}
 		if m.view == 2 {
 			switch key {
@@ -1098,6 +1151,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.pane == 1 {
 			switch key {
+			case "ctrl+u":
+				m.chatDraft[m.repo] = ""
 			case "up":
 				m.chatScroll++
 				return m, nil
@@ -1201,6 +1256,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case tea.PasteMsg:
+		if m.projects.open {
+			m.pasteProjectField(v.Content)
+			return m, nil
+		}
 		if m.setup.open {
 			text := strings.NewReplacer("\r", "", "\n", "", "\x00", "", "\x1b", "").Replace(v.Content)
 			if m.setup.step == 4 && !m.setup.repoBusy && len(m.setup.repoDraft)+len(text) <= 4096 {
@@ -1238,6 +1297,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if m.githubOpen {
+			return m, nil
+		}
+		if m.home && m.view == 0 {
 			return m, nil
 		}
 		if m.view == 2 {

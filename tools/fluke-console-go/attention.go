@@ -102,6 +102,7 @@ func (m *model) openAttention(index int) bool {
 	}
 	item := items[index]
 	m.closePanels()
+	m.home = false
 	m.repo, m.selected, m.pane = item.Repo, 0, 0
 	switch item.Kind {
 	case "decision":

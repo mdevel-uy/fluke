@@ -88,11 +88,11 @@ func (m *model) cycleModel(backwards bool) {
 // Ctrl+Enter is an explicit apply action: restart only the current repo's
 // orchestrator with the selected config, keeping goal, transcript and workers.
 func (m *model) applyConfig() tea.Cmd {
-	if m.preparing {
+	if !m.home && m.preparing {
 		m.notice = uiText("Esperá a que termine la preparación antes de aplicar el modelo.")
 		return nil
 	}
-	if s := m.orchestration[m.repo]; s != nil && (s.ChatSending || s.Sending) {
+	if s := m.orchestration[m.repo]; !m.home && s != nil && (s.ChatSending || s.Sending) {
 		m.notice = uiText("Esperá a que termine el envío actual antes de reiniciar Fluke.")
 		return nil
 	}
@@ -100,13 +100,19 @@ func (m *model) applyConfig() tea.Cmd {
 		m.notice = err.Error()
 		return nil
 	}
+	if m.repo == "" || m.home {
+		m.home, m.view, m.pane = true, 0, 0
+		m.notice = localText("Defaults saved for new sessions. Open a project to apply them to its conversation.", "Predeterminados guardados para sesiones nuevas. Abrí un proyecto para aplicarlos a su conversación.")
+		return m.checkProvider()
+	}
 	if m.sessionAlive("fluke:" + m.repo) {
 		m.stop("fluke:" + m.repo)
 		if m.sessionAlive("fluke:" + m.repo) {
 			return nil
 		}
 	}
-	m.view, m.pane = 0, 1
+	m.view, m.pane = 1, 1
+	m.home = false
 	return tea.Batch(m.start(""), m.checkProvider())
 }
 

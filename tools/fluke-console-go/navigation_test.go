@@ -17,6 +17,7 @@ func TestGlobalNavigationEscapesEditorsAndReview(t *testing.T) {
 	repo := t.TempDir()
 	state.Orchestrator = &AgentConfig{Provider: "codex", Executable: "codex"}
 	_ = state.addTask(repo, "Una tarea", "Un resultado verificable")
+	state.Decisions = []Decision{{Repo: repo, TaskID: state.Tasks[0].ID, Question: "Continuar?"}}
 	m := newModel(store, state, repo)
 	defer m.cleanup()
 	for _, code := range []rune{tea.KeyF1, tea.KeyF2, tea.KeyF3, tea.KeyF4} {
@@ -31,6 +32,11 @@ func TestGlobalNavigationEscapesEditorsAndReview(t *testing.T) {
 	m.Update(tea.KeyPressMsg{Code: tea.KeyF7})
 	if !m.review.open || m.review.task.ID != state.Tasks[0].ID {
 		t.Fatal("F7 no abre la revisión de la tarea seleccionada")
+	}
+	generation := m.review.generation
+	m.Update(tea.KeyPressMsg{Code: tea.KeyF7})
+	if !m.review.open || m.review.generation != generation || m.view != 3 {
+		t.Fatal("F7 repetido abandona o reinicia la revisión desde F4")
 	}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	if m.review.open {
@@ -47,6 +53,53 @@ func TestGlobalNavigationEscapesEditorsAndReview(t *testing.T) {
 	m.globalKey("ctrl+x")
 	if m.View().MouseMode != tea.MouseModeAllMotion {
 		t.Fatal("gestión de ventanas perdió el mouse")
+	}
+}
+
+func TestReviewNavigationWithoutTasks(t *testing.T) {
+	store, state, err := openStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.lock.Close()
+	m := newModel(store, state, t.TempDir())
+	defer m.cleanup()
+	m.width, m.height = 120, 35
+	m.Update(tea.KeyPressMsg{Code: tea.KeyF4})
+	_, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyF7})
+	if !m.review.open || m.review.task.ID != "" || m.review.loading || cmd != nil {
+		t.Fatal("F7 sin tareas no abre una revisión vacía")
+	}
+	text := ansi.Strip(m.review.view(120, 25))
+	if !strings.Contains(text, "TODAVÍA NO HAY TAREAS") || strings.Contains(text, "Worktree limpio") || strings.Contains(text, "Aceptar") || strings.Contains(text, "Publicar") {
+		t.Fatalf("revisión vacía engañosa: %s", text)
+	}
+	for _, key := range []string{"f7", "r", "a", "p", "m"} {
+		if _, cmd := m.Update(tea.KeyPressMsg{Code: map[string]rune{"f7": tea.KeyF7, "r": 'r', "a": 'a', "p": 'p', "m": 'm'}[key]}); cmd != nil || !m.review.open || m.command != nil || m.review.loading {
+			t.Fatalf("%s activó una tarea inexistente o cerró revisión", key)
+		}
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.review.open || m.view != 3 {
+		t.Fatal("Esc no volvió a F4")
+	}
+}
+
+func TestComposerCursorMatchesInsertionPoint(t *testing.T) {
+	for _, draft := range []string{"", "hola", "hola  ", "界🔥  ", strings.Repeat("界🔥", 30) + "  "} {
+		for _, width := range []int{8, 20, 60} {
+			view := ansi.Strip(brandComposer(draft, width, true))
+			lines := strings.Split(view, "\n")
+			want := "> " + tailText(draft, width-6) + "▌"
+			if !strings.Contains(lines[1], want) {
+				t.Fatalf("cursor no sigue al texto %q a ancho %d: %q", draft, width, lines[1])
+			}
+			for _, line := range lines {
+				if ansi.StringWidth(line) != width {
+					t.Fatalf("composer excede ancho %d: %q", width, line)
+				}
+			}
+		}
 	}
 }
 
