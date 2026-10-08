@@ -100,6 +100,19 @@ function AppErrorBubbles() {
   );
 }
 
+const REPORT_ERROR_CODES = [
+  'auth',
+  'forbidden',
+  'not_found',
+  'rejected',
+  'rate_limited',
+  'network',
+  'gh_missing',
+  'gone',
+  'unexpected',
+  'other',
+];
+
 const APP_ERROR_BUTTON =
   'min-h-8 rounded-md border border-border/60 px-3 text-label text-normal hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand disabled:opacity-60';
 
@@ -147,9 +160,14 @@ function AppErrorActions({ error }: { error: AppErrorNotice }) {
           </button>
         )}
       </div>
-      {report?.status === 'failed' && report.message && (
+      {report?.status === 'failed' && (
         <p role="alert" className="mt-2 break-words text-label text-error">
-          {report.message}
+          {t(
+            `director.appErrors.reportErrors.${REPORT_ERROR_CODES.includes(report.code) ? report.code : 'unknown'}`
+          )}
+          {report.code === 'other' && report.detail
+            ? ` (${report.detail})`
+            : null}
         </p>
       )}
     </div>

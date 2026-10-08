@@ -28,7 +28,7 @@ export interface AppErrorNotice {
 export type BugReportState =
   | { status: 'sending' }
   | { status: 'created'; number: number; url: string }
-  | { status: 'failed'; message: string | null };
+  | { status: 'failed'; code: string; detail: string | null };
 
 interface DirectorState {
   appErrors: AppErrorNotice[];

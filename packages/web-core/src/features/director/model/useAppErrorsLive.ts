@@ -128,7 +128,8 @@ export async function reportAppErrorAsBug(fingerprint: string) {
     const body = (await response.json().catch(() => null)) as {
       number?: number;
       url?: string;
-      message?: string;
+      code?: string;
+      detail?: string;
     } | null;
     if (response.ok && body && Number.isSafeInteger(body.number) && body.url) {
       setBugReport(fingerprint, {
@@ -139,11 +140,16 @@ export async function reportAppErrorAsBug(fingerprint: string) {
     } else {
       setBugReport(fingerprint, {
         status: 'failed',
-        message: body?.message ?? null,
+        code: body?.code ?? 'unknown',
+        detail: body?.detail ?? null,
       });
     }
   } catch {
-    setBugReport(fingerprint, { status: 'failed', message: null });
+    setBugReport(fingerprint, {
+      status: 'failed',
+      code: 'unknown',
+      detail: null,
+    });
   }
 }
 

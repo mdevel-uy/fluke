@@ -4,7 +4,7 @@ use std::future::Future;
 
 use axum::{
     Json, Router,
-    extract::{DefaultBodyLimit, Path},
+    extract::{DefaultBodyLimit, Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -105,30 +105,48 @@ fn issue_body(error: &AppErrorSummary, screen: &str) -> String {
     )
 }
 
-/// Human-readable reason for a failed `gh` call; never includes a stack or token.
-fn gh_failure_reason(stderr: &str) -> String {
+/// Why a report failed. `code` is a stable identifier the UI translates;
+/// `detail` carries the raw first stderr line only for `other`.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+struct ReportFailure {
+    code: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    detail: Option<String>,
+}
+
+impl ReportFailure {
+    fn code(code: &'static str) -> Self {
+        Self { code, detail: None }
+    }
+}
+
+/// Maximum time `gh` may take, so a hung process cannot hold the report lock.
+const GH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Classify a failed `gh` call; never includes a stack or token.
+fn gh_failure(stderr: &str) -> ReportFailure {
     let lower = stderr.to_lowercase();
-    let reason = if lower.contains("gh auth login")
+    let code = if lower.contains("gh auth login")
         || lower.contains("not logged in")
         || lower.contains("http 401")
         || lower.contains("bad credentials")
     {
-        "GitHub session missing or expired. Sign in to GitHub in Settings."
+        "auth"
     } else if lower.contains("http 403") || lower.contains("forbidden") {
-        "GitHub denied access to the repository."
+        "forbidden"
     } else if lower.contains("http 404") || lower.contains("not found") {
-        "The repository was not found or you do not have access to it."
+        "not_found"
     } else if lower.contains("http 422") {
-        "GitHub rejected the issue."
+        "rejected"
     } else if lower.contains("http 429") || lower.contains("rate limit") {
-        "GitHub rate limit reached. Try again in a few minutes."
+        "rate_limited"
     } else if lower.contains("dial tcp")
         || lower.contains("could not resolve")
         || lower.contains("timeout")
         || lower.contains("network")
         || lower.contains("connection")
     {
-        "Could not reach GitHub. Check your connection."
+        "network"
     } else {
         let line: String = stderr
             .lines()
@@ -137,20 +155,24 @@ fn gh_failure_reason(stderr: &str) -> String {
             .chars()
             .take(200)
             .collect();
-        return format!("GitHub CLI failed: {line}");
+        return ReportFailure {
+            code: "other",
+            detail: Some(line),
+        };
     };
-    reason.to_owned()
+    ReportFailure::code(code)
 }
 
 /// Run `gh api repos/.../issues` with the JSON payload on stdin; returns stdout.
-async fn run_gh_create(payload: Vec<u8>) -> Result<String, String> {
+/// `pat` is the token configured in Settings -> GitHub, if any.
+async fn run_gh_create(payload: Vec<u8>, pat: Option<String>) -> Result<String, ReportFailure> {
     use std::process::Stdio;
 
     use tokio::{io::AsyncWriteExt, process::Command};
 
     let gh = resolve_executable_path("gh")
         .await
-        .ok_or_else(|| "The GitHub CLI (gh) is not installed.".to_owned())?;
+        .ok_or_else(|| ReportFailure::code("gh_missing"))?;
     let mut cmd = Command::new(gh);
     cmd.args([
         "api",
@@ -160,25 +182,35 @@ async fn run_gh_create(payload: Vec<u8>) -> Result<String, String> {
         "--input",
         "-",
     ]);
+    if let Some(pat) = pat.filter(|t| !t.is_empty()) {
+        cmd.env("GH_TOKEN", &pat).env("GITHUB_TOKEN", &pat);
+    }
     cmd.stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
     cmd.no_window();
     let mut child = cmd
         .spawn()
-        .map_err(|_| "The GitHub CLI (gh) could not be started.".to_owned())?;
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(&payload)
+        .map_err(|_| ReportFailure::code("gh_missing"))?;
+    let run = async {
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin
+                .write_all(&payload)
+                .await
+                .map_err(|_| ReportFailure::code("unexpected"))?;
+        }
+        child
+            .wait_with_output()
             .await
-            .map_err(|_| "Could not send the report to the GitHub CLI.".to_owned())?;
-    }
-    let output = child
-        .wait_with_output()
+            .map_err(|_| ReportFailure::code("unexpected"))
+    };
+    // On timeout the future is dropped, and kill_on_drop ends the process.
+    let output = tokio::time::timeout(GH_TIMEOUT, run)
         .await
-        .map_err(|_| "The GitHub CLI (gh) did not finish.".to_owned())?;
+        .map_err(|_| ReportFailure::code("network"))??;
     if !output.status.success() {
-        return Err(gh_failure_reason(&String::from_utf8_lossy(&output.stderr)));
+        return Err(gh_failure(&String::from_utf8_lossy(&output.stderr)));
     }
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
@@ -198,14 +230,14 @@ async fn report_bug_with<F, Fut>(
     fingerprint: &str,
     screen: &str,
     create: F,
-) -> Result<ReportedIssue, (StatusCode, String)>
+) -> Result<ReportedIssue, (StatusCode, ReportFailure)>
 where
     F: FnOnce(Vec<u8>) -> Fut,
-    Fut: Future<Output = Result<String, String>>,
+    Fut: Future<Output = Result<String, ReportFailure>>,
 {
     let _guard = REPORT_LOCK.lock().await;
     let error = app_errors::find(fingerprint)
-        .ok_or((StatusCode::NOT_FOUND, "This error is no longer active.".into()))?;
+        .ok_or((StatusCode::NOT_FOUND, ReportFailure::code("gone")))?;
     if let Some(issue) = error.issue {
         return Ok(issue);
     }
@@ -214,30 +246,39 @@ where
         "body": issue_body(&error, screen),
         "labels": ["bug"],
     }))
-    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Could not build the issue.".into()))?;
+    .map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ReportFailure::code("unexpected"),
+        )
+    })?;
     let stdout = create(payload)
         .await
-        .map_err(|reason| (StatusCode::BAD_GATEWAY, reason))?;
+        .map_err(|failure| (StatusCode::BAD_GATEWAY, failure))?;
     let issue = parse_created(&stdout).ok_or((
         StatusCode::BAD_GATEWAY,
-        "GitHub answered with an unexpected response.".into(),
+        ReportFailure::code("unexpected"),
     ))?;
     app_errors::set_reported(fingerprint, issue.clone());
     Ok(issue)
 }
 
 async fn report_bug(
+    State(deployment): State<DeploymentImpl>,
     Path(fingerprint): Path<String>,
     Json(request): Json<ReportBugRequest>,
 ) -> Response {
     if !valid_fingerprint(&fingerprint) || request.screen.len() > 512 {
         return StatusCode::BAD_REQUEST.into_response();
     }
-    match report_bug_with(&fingerprint, &request.screen, run_gh_create).await {
+    let pat = crate::routes::github::configured_pat(&deployment).await;
+    match report_bug_with(&fingerprint, &request.screen, |payload| {
+        run_gh_create(payload, pat)
+    })
+    .await
+    {
         Ok(issue) => Json(issue).into_response(),
-        Err((status, message)) => {
-            (status, Json(serde_json::json!({ "message": message }))).into_response()
-        }
+        Err((status, failure)) => (status, Json(failure)).into_response(),
     }
 }
 
@@ -394,7 +435,7 @@ mod tests {
         );
         app_errors::record(message, location, "backend", ErrorContext::default());
         let failed = report_bug_with(&fingerprint, "/", |_| async {
-            Err("Could not reach GitHub.".to_owned())
+            Err(ReportFailure::code("network"))
         })
         .await
         .unwrap_err();
@@ -410,7 +451,7 @@ mod tests {
         assert_eq!(created.number, 42);
         // A second create call would fail here, so Ok proves it never ran.
         let again = report_bug_with(&fingerprint, "/", |_| async {
-            Err("second issue must not be created".to_owned())
+            Err(ReportFailure::code("unexpected"))
         })
         .await
         .unwrap();
@@ -420,9 +461,13 @@ mod tests {
 
     #[test]
     fn gh_failures_are_readable() {
-        assert!(gh_failure_reason("HTTP 403: Forbidden").contains("denied"));
-        assert!(gh_failure_reason("To get started with GitHub CLI, please run: gh auth login").contains("session"));
-        assert!(gh_failure_reason("dial tcp: lookup api.github.com").contains("reach"));
+        assert_eq!(gh_failure("HTTP 403: Forbidden").code, "forbidden");
+        assert_eq!(gh_failure("please run: gh auth login").code, "auth");
+        assert_eq!(gh_failure("dial tcp: lookup api.github.com").code, "network");
+        let other = gh_failure("
+weird failure
+second");
+        assert_eq!((other.code, other.detail.as_deref()), ("other", Some("weird failure")));
     }
 
     #[tokio::test]
