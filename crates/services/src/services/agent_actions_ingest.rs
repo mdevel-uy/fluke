@@ -145,10 +145,25 @@ impl AgentActionDeclaration {
 /// Envelope for `.vk/actions.json`. Actions stay as raw JSON here so each
 /// element can be validated individually — a per-element failure then names
 /// the offending action (index + kind) instead of a bare serde message.
+///
+/// The canonical form is the object; a bare root array is accepted as read
+/// tolerance, since only the analyst is told the envelope (#834).
 #[derive(Debug, Clone, Deserialize)]
-struct ActionsFile {
-    #[serde(default)]
-    actions: Vec<serde_json::Value>,
+#[serde(untagged)]
+enum ActionsFile {
+    Envelope {
+        #[serde(default)]
+        actions: Vec<serde_json::Value>,
+    },
+    Bare(Vec<serde_json::Value>),
+}
+
+impl ActionsFile {
+    fn into_actions(self) -> Vec<serde_json::Value> {
+        match self {
+            Self::Envelope { actions } | Self::Bare(actions) => actions,
+        }
+    }
 }
 
 /// Cap on how much of the raw file travels into `failure_reason`. Enough to
@@ -244,8 +259,9 @@ fn parse_actions_file(path: &Path) -> Result<Vec<AgentActionDeclaration>, Ingest
     // Element-wise validation: the error names the offending action by index
     // and declared kind, instead of a bare serde message that leaves the
     // human hunting through the whole file.
-    let mut actions = Vec::with_capacity(file.actions.len());
-    for (index, value) in file.actions.into_iter().enumerate() {
+    let raw_actions = file.into_actions();
+    let mut actions = Vec::with_capacity(raw_actions.len());
+    for (index, value) in raw_actions.into_iter().enumerate() {
         let kind = value
             .get("kind")
             .and_then(|k| k.as_str())
