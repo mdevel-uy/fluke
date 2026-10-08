@@ -1454,7 +1454,8 @@ pub async fn on_pr_merged(
 /// agent actions into real GitHub side effects (AGENT-ACTIONS-SPEC.md).
 ///
 /// Returns `Ok(true)` when the caller should keep going along the happy path,
-/// or `Ok(false)` when the hook marked the task `failed` (invalid file, DB
+/// or `Ok(false)` when the hook marked the task `failed` (an unreadable
+/// `.vk/actions.json` does NOT: it is recorded in `ingest_error`, DB
 /// error, or a definitive action failure). On `false` the caller must not
 /// overwrite the task status back to done/in_review; archiving and next-task
 /// dispatch still run as usual.
@@ -1515,12 +1516,22 @@ async fn hook_agent_actions(
     let actions = match agent_actions_ingest::read_actions(&worktree_path, &workspace_root) {
         Ok(v) => v,
         Err(e) => {
+            // The agent's work is done (code pushed, PR exists): an unreadable
+            // actions file must not fail the task. Record the full error so
+            // the UI can show it, and carry on as if nothing was declared.
             let reason = format!("Ingest de agent_actions falló: {e}");
-            WorkerTask::set_failed(pool, task_id, &reason).await?;
             warn!(task_id = %task_id, "{}", reason);
-            return Ok(false);
+            if let Err(db_err) = WorkerTask::set_ingest_error(pool, task_id, Some(&reason)).await
+            {
+                warn!(task_id = %task_id, "no pude registrar el error de ingest: {db_err}");
+            }
+            return Ok(true);
         }
     };
+    // A readable file supersedes any error recorded by a previous ingest.
+    if let Err(db_err) = WorkerTask::set_ingest_error(pool, task_id, None).await {
+        warn!(task_id = %task_id, "no pude limpiar el error de ingest: {db_err}");
+    }
     if actions.is_empty() {
         return Ok(true);
     }

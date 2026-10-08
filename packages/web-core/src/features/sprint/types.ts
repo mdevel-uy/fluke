@@ -14,6 +14,7 @@ export type WorkerTask = WorkerTaskResponse & {
   review_result?: string | null;
   loop_state?: string | null;
   failure_reason?: string | null;
+  ingest_error?: string | null;
 };
 
 export type SprintColumnStatus =

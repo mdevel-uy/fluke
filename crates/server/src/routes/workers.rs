@@ -151,6 +151,10 @@ pub struct WorkerTaskResponse {
     /// Why the task failed, when status == "failed". Recorded by the
     /// orchestrator at the moment of failure; null otherwise.
     pub failure_reason: Option<String>,
+    /// `.vk/actions.json` ingest error (reason + declared content excerpt).
+    /// The task did not fail because of it; shown regardless of status.
+    #[ts(optional, type = "string | null")]
+    pub ingest_error: Option<String>,
     /// Per-task override for the estimated man-hours saved. `null` = use the
     /// installation default; a number replaces the default for aggregation
     /// (see `value_generated_summary`).
@@ -292,6 +296,7 @@ async fn worker_task_to_response(
         review_result: task.review_result,
         loop_state,
         failure_reason: task.failure_reason,
+        ingest_error: task.ingest_error,
         hours_saved_override: task.hours_saved_override,
         result_summary: task.result_summary,
         deliverable_ref: task.deliverable_ref,
