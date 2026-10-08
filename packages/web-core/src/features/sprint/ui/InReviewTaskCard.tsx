@@ -6,6 +6,7 @@ import type { WorkerTask } from '@/features/sprint/types';
 import { useTranslation } from 'react-i18next';
 import { IssueBadge, taskDisplayTitle } from './IssueBadge';
 import { SkillChips } from './SkillChips';
+import { IngestErrorNote } from './IngestErrorNote';
 
 interface InReviewTaskCardProps {
   task: WorkerTask;
@@ -138,6 +139,7 @@ export function InReviewTaskCard({
           {taskDisplayTitle(task)}
         </p>
       </div>
+      <IngestErrorNote task={task} />
       <SkillChips skills={task.skills ?? []} />
       <div className="flex items-center gap-2 flex-wrap">
         {reviewResult === 'approved' && (

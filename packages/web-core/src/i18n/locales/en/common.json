@@ -2021,6 +2021,9 @@
       "viewPr": "View PR",
       "empty": "No failed tasks."
     },
+    "ingestError": {
+      "title": "Could not read .vk/actions.json (the task did not fail)"
+    },
     "clearColumn": {
       "confirm": "Confirm?"
     },

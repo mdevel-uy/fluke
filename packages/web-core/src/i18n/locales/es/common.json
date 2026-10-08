@@ -2021,6 +2021,9 @@
       "viewPr": "Ver PR",
       "empty": "No hay tareas fallidas."
     },
+    "ingestError": {
+      "title": "No se pudo leer .vk/actions.json (la tarea no falló)"
+    },
     "clearColumn": {
       "confirm": "¿Confirmar?"
     },

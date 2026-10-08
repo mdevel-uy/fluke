@@ -5,6 +5,7 @@ import { Button } from '@vibe/ui/components/Button';
 import type { Worker, WorkerTask } from '@/features/sprint/types';
 import { IssueBadge, taskDisplayTitle } from './IssueBadge';
 import { SkillChips } from './SkillChips';
+import { IngestErrorNote } from './IngestErrorNote';
 import { DesignHandoffDialog } from './DesignHandoffDialog';
 import { DesignArtifactLinks } from './DesignArtifactLinks';
 
@@ -77,6 +78,7 @@ export function DoneTaskCard({
           </Button>
         )}
       </div>
+      <IngestErrorNote task={task} />
       <SkillChips skills={task.skills ?? []} />
       {hasDeliverable && (
         <div className="flex flex-col gap-2">

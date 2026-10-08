@@ -1454,7 +1454,8 @@ pub async fn on_pr_merged(
 /// agent actions into real GitHub side effects (AGENT-ACTIONS-SPEC.md).
 ///
 /// Returns `Ok(true)` when the caller should keep going along the happy path,
-/// or `Ok(false)` when the hook marked the task `failed` (invalid file, DB
+/// or `Ok(false)` when the hook marked the task `failed` (an unreadable
+/// `.vk/actions.json` does NOT: it is recorded in `ingest_error`, DB
 /// error, or a definitive action failure). On `false` the caller must not
 /// overwrite the task status back to done/in_review; archiving and next-task
 /// dispatch still run as usual.
@@ -1515,12 +1516,22 @@ async fn hook_agent_actions(
     let actions = match agent_actions_ingest::read_actions(&worktree_path, &workspace_root) {
         Ok(v) => v,
         Err(e) => {
+            // The agent's work is done (code pushed, PR exists): an unreadable
+            // actions file must not fail the task. Record the full error so
+            // the UI can show it, and carry on as if nothing was declared.
             let reason = format!("Ingest de agent_actions falló: {e}");
-            WorkerTask::set_failed(pool, task_id, &reason).await?;
             warn!(task_id = %task_id, "{}", reason);
-            return Ok(false);
+            if let Err(db_err) = WorkerTask::set_ingest_error(pool, task_id, Some(&reason)).await
+            {
+                warn!(task_id = %task_id, "no pude registrar el error de ingest: {db_err}");
+            }
+            return Ok(true);
         }
     };
+    // A readable file supersedes any error recorded by a previous ingest.
+    if let Err(db_err) = WorkerTask::set_ingest_error(pool, task_id, None).await {
+        warn!(task_id = %task_id, "no pude limpiar el error de ingest: {db_err}");
+    }
     if actions.is_empty() {
         return Ok(true);
     }
@@ -8092,5 +8103,154 @@ mod tests {
             .find(|r| r.kind == "comment_pr")
             .expect("summary row exists");
         assert_eq!(summary.status, agent_action::STATUS_FAILED);
+    }
+
+    // ---- #835: an unreadable `.vk/actions.json` must not fail the task ----
+
+    /// Task + workspace + repo wired so `hook_agent_actions` resolves the
+    /// workspace root `<tmp>` and the worktree `<tmp>/<repo name>`.
+    async fn ingest_fixture(db: &DBService) -> (WorkerTask, Workspace, PathBuf, PathBuf, TempDir) {
+        let root = TempDir::new().expect("tempdir");
+        let (repo, _repo_tmp) = insert_repo(db, "ingest-repo").await;
+        let worker = insert_worker(db, "Dev").await;
+        let workspace = insert_workspace(db).await;
+        Workspace::update_container_ref(&db.pool, workspace.id, root.path().to_str().unwrap())
+            .await
+            .unwrap();
+        WorkspaceRepo::create_many(
+            &db.pool,
+            workspace.id,
+            &[db::models::workspace_repo::CreateWorkspaceRepo {
+                repo_id: repo.id,
+                target_branch: "main".to_string(),
+            }],
+        )
+        .await
+        .unwrap();
+        let task = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "address comments".to_string(),
+                prompt: "p".to_string(),
+                issue_number: None,
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
+            },
+        )
+        .await
+        .unwrap();
+        Worker::attach_workspace(&db.pool, worker.id, workspace.id)
+            .await
+            .unwrap();
+        WorkerTask::set_workspace_id(&db.pool, task.id, workspace.id)
+            .await
+            .unwrap();
+        WorkerTask::set_status(&db.pool, task.id, worker_task::STATUS_IN_PROGRESS)
+            .await
+            .unwrap();
+        let worktree = root.path().join(&repo.name);
+        std::fs::create_dir_all(&worktree).unwrap();
+        (task, workspace, root.path().to_path_buf(), worktree, root)
+    }
+
+    /// Reads the (new, nullable) `worker_tasks.ingest_error` column by name so
+    /// the test compiles before the model field exists.
+    async fn ingest_error_of(db: &DBService, task_id: Uuid) -> Option<String> {
+        sqlx::query_scalar::<_, Option<String>>(
+            "SELECT ingest_error FROM worker_tasks WHERE id = ?1",
+        )
+        .bind(task_id)
+        .fetch_one(&db.pool)
+        .await
+        .expect("worker_tasks.ingest_error column must exist")
+    }
+
+    fn write_actions(dir: &std::path::Path, body: &str) {
+        std::fs::create_dir_all(dir.join(".vk")).unwrap();
+        std::fs::write(dir.join(".vk/actions.json"), body).unwrap();
+    }
+
+    #[tokio::test]
+    async fn invalid_actions_json_does_not_fail_task_and_records_error() {
+        let db = setup_test_db().await;
+        let (task, ws, _root, worktree, _keep) = ingest_fixture(&db).await;
+        write_actions(&worktree, r#"{"actions": "NOT_A_LIST_MARKER_835"}"#);
+        let cfg = Arc::new(RwLock::new(Config::default()));
+
+        let proceed = hook_agent_actions(&cfg, &db, ws.id, task.id).await.unwrap();
+
+        assert!(proceed, "flow must continue as if no actions were declared");
+        let t = WorkerTask::find_by_id(&db.pool, task.id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_ne!(t.status, worker_task::STATUS_FAILED);
+        assert!(t.failure_reason.is_none(), "failure_reason must stay empty");
+        let recorded = ingest_error_of(&db, task.id).await.expect("error recorded");
+        assert!(recorded.contains("inválido"), "reason missing: {recorded}");
+        assert!(recorded.contains("Contenido declarado"), "{recorded}");
+        assert!(
+            recorded.contains("NOT_A_LIST_MARKER_835"),
+            "excerpt missing: {recorded}"
+        );
+    }
+
+    #[tokio::test]
+    async fn invalid_actions_json_in_workspace_root_fallback_is_also_tolerated() {
+        let db = setup_test_db().await;
+        let (task, ws, root, _worktree, _keep) = ingest_fixture(&db).await;
+        write_actions(&root, "{ not json FALLBACK_MARKER_835");
+        let cfg = Arc::new(RwLock::new(Config::default()));
+
+        assert!(hook_agent_actions(&cfg, &db, ws.id, task.id).await.unwrap());
+
+        let t = WorkerTask::find_by_id(&db.pool, task.id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_ne!(t.status, worker_task::STATUS_FAILED);
+        let recorded = ingest_error_of(&db, task.id).await.expect("error recorded");
+        assert!(recorded.contains("FALLBACK_MARKER_835"), "{recorded}");
+    }
+
+    #[tokio::test]
+    async fn reingest_replaces_recorded_error_instead_of_accumulating() {
+        let db = setup_test_db().await;
+        let (task, ws, _root, worktree, _keep) = ingest_fixture(&db).await;
+        let cfg = Arc::new(RwLock::new(Config::default()));
+
+        write_actions(&worktree, r#"{"actions": "FIRST_MARKER_835"}"#);
+        assert!(hook_agent_actions(&cfg, &db, ws.id, task.id).await.unwrap());
+        write_actions(&worktree, r#"{"actions": "SECOND_MARKER_835"}"#);
+        assert!(hook_agent_actions(&cfg, &db, ws.id, task.id).await.unwrap());
+
+        let recorded = ingest_error_of(&db, task.id).await.expect("error recorded");
+        assert!(recorded.contains("SECOND_MARKER_835"), "{recorded}");
+        assert!(
+            !recorded.contains("FIRST_MARKER_835"),
+            "must replace, not append: {recorded}"
+        );
+    }
+
+    #[tokio::test]
+    async fn successful_reingest_clears_previously_recorded_error() {
+        let db = setup_test_db().await;
+        let (task, ws, _root, worktree, _keep) = ingest_fixture(&db).await;
+        let cfg = Arc::new(RwLock::new(Config::default()));
+
+        write_actions(&worktree, r#"{"actions": "BROKEN_835"}"#);
+        assert!(hook_agent_actions(&cfg, &db, ws.id, task.id).await.unwrap());
+        assert!(ingest_error_of(&db, task.id).await.is_some());
+
+        std::fs::remove_file(worktree.join(".vk/actions.json")).unwrap();
+        assert!(hook_agent_actions(&cfg, &db, ws.id, task.id).await.unwrap());
+        assert!(
+            ingest_error_of(&db, task.id).await.is_none(),
+            "stale error must be cleared"
+        );
     }
 }

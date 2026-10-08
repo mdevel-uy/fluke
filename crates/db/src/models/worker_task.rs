@@ -184,6 +184,12 @@ pub struct WorkerTask {
     /// the reviewer prompt injection (issue #95). The value is advisory —
     /// never a gate.
     pub territory_globs: Option<String>,
+    /// Error from ingesting `.vk/actions.json` (unreadable file / invalid
+    /// JSON), with the bounded excerpt of what the agent declared. The task
+    /// is NOT failed because of it; this is only surfaced in the UI. Replaced
+    /// on every ingest and cleared when a later ingest succeeds.
+    #[sqlx(default)]
+    pub ingest_error: Option<String>,
 }
 
 /// Where a designer deliverable went: the handoff task consuming it.
@@ -230,7 +236,7 @@ impl WorkerTask {
                     issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override, result_summary, deliverable_ref,
-                    source_task_id, territory_globs
+                    source_task_id, territory_globs, ingest_error
                FROM worker_tasks
                WHERE worker_id = ?1
                ORDER BY position ASC, created_at ASC",
@@ -246,13 +252,27 @@ impl WorkerTask {
                     issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override, result_summary, deliverable_ref,
-                    source_task_id, territory_globs
+                    source_task_id, territory_globs, ingest_error
                FROM worker_tasks
                WHERE id = ?1",
         )
         .bind(id)
         .fetch_optional(pool)
         .await
+    }
+
+    /// Record (or clear, with `None`) the `.vk/actions.json` ingest error.
+    pub async fn set_ingest_error(
+        pool: &SqlitePool,
+        id: Uuid,
+        error: Option<&str>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE worker_tasks SET ingest_error = ?2 WHERE id = ?1")
+            .bind(id)
+            .bind(error)
+            .execute(pool)
+            .await?;
+        Ok(())
     }
 
     /// Append a task at the end of the worker's queue.
