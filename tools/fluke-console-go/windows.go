@@ -110,6 +110,8 @@ type windowManager struct {
 	closed              bool
 	nextID              int
 	lastError           error
+	zoomedID            string
+	zoomRestore         rectangle
 }
 
 func newWindowManager(w, h int) *windowManager {
@@ -184,7 +186,17 @@ func (m *windowManager) AddWindowIn(dir, name string, argv ...string) {
 }
 func (m *windowManager) FocusWindow(i int) {
 	if i >= 0 && i < len(m.Windows) {
+		if i == m.FocusedWindow && m.zoomedID != "" {
+			return
+		}
+		zoomed := m.zoomedID != ""
+		if zoomed {
+			m.ToggleZoom()
+		}
 		m.FocusedWindow = i
+		if zoomed {
+			m.ToggleZoom()
+		}
 	}
 }
 func (m *windowManager) DeleteWindow(i int) bool {
@@ -212,10 +224,43 @@ func (m *windowManager) Cleanup() {
 	m.Windows = nil
 }
 func (m *windowManager) ToggleTiling() { m.tiled = !m.tiled; m.layout() }
+func (m *windowManager) ToggleZoom() tea.Cmd {
+	if len(m.Windows) == 0 {
+		return nil
+	}
+	if m.zoomedID != "" {
+		for _, w := range m.Windows {
+			if w.ID == m.zoomedID {
+				w.x, w.y, w.w, w.h = m.zoomRestore.x, m.zoomRestore.y, m.zoomRestore.w, m.zoomRestore.h
+			}
+		}
+		m.zoomedID = ""
+	} else {
+		w := m.Windows[m.FocusedWindow]
+		m.zoomedID = w.ID
+		m.zoomRestore = rectangle{w.x, w.y, w.w, w.h}
+	}
+	m.endMouse()
+	m.layout()
+	return nil
+}
 func (m *windowManager) layout() {
 	n := len(m.Windows)
 	if n == 0 {
+		m.zoomedID = ""
 		return
+	}
+	if m.zoomedID != "" {
+		found := false
+		for _, w := range m.Windows {
+			if w.ID == m.zoomedID {
+				w.x, w.y, w.w, w.h = m.zoomRestore.x, m.zoomRestore.y, m.zoomRestore.w, m.zoomRestore.h
+				found = true
+			}
+		}
+		if !found {
+			m.zoomedID = ""
+		}
 	}
 	if m.tiled {
 		cols := 1
@@ -237,6 +282,13 @@ func (m *windowManager) layout() {
 	} else {
 		for _, w := range m.Windows {
 			m.clamp(w)
+			_ = w.resize(w.w-2, w.h-3)
+		}
+	}
+	for _, w := range m.Windows {
+		if w.ID == m.zoomedID {
+			m.zoomRestore = rectangle{w.x, w.y, w.w, w.h}
+			w.x, w.y, w.w, w.h = 0, 0, m.width, m.height
 			_ = w.resize(w.w-2, w.h-3)
 		}
 	}
@@ -264,6 +316,12 @@ func (m *windowManager) hit(x, y int) int {
 }
 func (m *windowManager) beginMouse(mouse tea.Mouse) {
 	if mouse.Button != tea.MouseLeft {
+		return
+	}
+	if m.zoomedID != "" {
+		if mouse.X > 0 && mouse.X < m.width-1 && mouse.Y >= 3 && mouse.Y < m.height-1 {
+			m.Mode = terminalMode
+		}
 		return
 	}
 	i := m.hit(mouse.X, mouse.Y)
@@ -489,6 +547,9 @@ func (m *windowManager) View() tea.View {
 	}
 	for _, i := range order {
 		w := m.Windows[i]
+		if m.zoomedID != "" && w.ID != m.zoomedID {
+			continue
+		}
 		content, c := renderTerminal(w)
 		border := muted
 		if i == m.FocusedWindow {

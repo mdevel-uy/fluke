@@ -26,6 +26,16 @@ func (m *model) copyFocused() tea.Cmd {
 			w := m.terminals.Windows[m.terminals.FocusedWindow]
 			text = w.visibleText()
 		}
+	case m.view == 3 && !m.config && !m.githubOpen:
+		if m.pane == 0 {
+			text = m.briefText()
+		} else if i := m.selectedDecision(); i >= 0 {
+			d := m.state.Decisions[i]
+			text = d.Question
+			if d.Answer != nil {
+				text += "\n\n" + *d.Answer
+			}
+		}
 	case m.githubOpen:
 		issues := m.github[m.repo].Issues
 		if len(issues) > 0 {

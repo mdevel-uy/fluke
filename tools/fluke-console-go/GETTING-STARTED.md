@@ -107,10 +107,11 @@ running, and workers share one global concurrency limit.
 ## Everyday controls
 
 - **F1:** all projects, create/open a project and global attention.
-- **F2:** selected project's goal, tasks, workers and conversation; Tab changes panel.
-- **F3:** inspect or talk directly to a worker session.
-- **F4:** decisions about product and scope.
-- **F5:** harness/model, worker limit and GitHub settings. Ctrl+E changes the UI
+- **F2 Workspace:** selected project's goal, tasks, workers and conversation; Tab changes panel.
+- **F3 Terminals:** inspect or talk directly to a worker session.
+- **F4:** the complete brief, requirements, open questions and decision history.
+  PgUp/PgDn scroll; Ctrl+F maximizes the focused panel. C returns to the chat in F2.
+- **F5 Settings:** harness/model, worker limit and GitHub settings. Ctrl+E changes the UI
   language; Ctrl+Enter applies a different model to the current project's
   orchestrator. From F1 it saves defaults without restarting background sessions.
 - **F6:** browse/import GitHub issues.
@@ -123,7 +124,8 @@ running, and workers share one global concurrency limit.
 In chat, `:` is ordinary text; use Ctrl+K for commands. Ctrl+U clears the draft.
 F7 follows the selected task, the task linked to a decision in F4, or the
 focused worker in F3. A decision without a task opens an empty review.
-On smaller terminals, Tab in F4 switches between the decision and project chat.
+Tab in F4 switches between the brief and decisions. Ctrl+D opens a pending
+decision in the same F2 chat. Type `show brief` in F2 to open the brief directly.
 Messages whose delivery cannot be confirmed remain marked as uncertain:
 check the native session before resending them.
 
@@ -133,7 +135,7 @@ for both the worker and Fluke before sending it. Enter sends; Shift+Enter adds
 a line; Esc closes the editor with no send. Unsent drafts survive panel changes.
 Native terminal entry remains available for CLI permissions and commands.
 
-In F4, Enter on an answered decision prepares a correction. `:amend N answer`
+In the F4 decisions panel, Enter on an answered question prepares a correction. `:amend N answer`
 keeps the original answer and appends a replacement with its source. Scope/task
 proposals use a new proposal; an integrated or published delivery needs a
 follow-up task. `:tell TASK_ID | message` is the command-line equivalent of **m**.

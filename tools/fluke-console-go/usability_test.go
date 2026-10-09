@@ -34,9 +34,9 @@ func TestNavigationUsesVisibleProjectAndDecision(t *testing.T) {
 	}
 }
 
-func TestChatPunctuationAndNarrowDecisionRemainUsable(t *testing.T) {
+func TestChatPunctuationAndNarrowProjectRemainUsable(t *testing.T) {
 	m := projectTestModel(t)
-	m.repo, m.home, m.view, m.pane, m.width, m.height = t.TempDir(), false, 3, 1, 44, 20
+	m.repo, m.home, m.view, m.pane, m.width, m.height = t.TempDir(), false, 1, 1, 44, 20
 	for _, r := range "https://repo:8000" {
 		m.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
 	}
@@ -44,7 +44,7 @@ func TestChatPunctuationAndNarrowDecisionRemainUsable(t *testing.T) {
 		t.Fatal("punctuation opened command mode")
 	}
 	if !strings.Contains(ansi.Strip(m.View().Content), "https://repo:8000") {
-		t.Fatal("narrow decision hides active chat")
+		t.Fatal("narrow project hides active chat")
 	}
 	m.Update(tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
 	if m.chatDraft[m.repo] != "" {

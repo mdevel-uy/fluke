@@ -109,7 +109,7 @@ func (m *model) openAttention(index int) bool {
 	m.repo, m.selected, m.pane = item.Repo, 0, 0
 	switch item.Kind {
 	case "decision":
-		m.view = 3
+		m.view, m.pane = 3, 1
 		for i, d := range m.state.Decisions {
 			if i == item.DecisionIndex {
 				break

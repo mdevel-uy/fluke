@@ -15,6 +15,7 @@ func TestWaitingForHumanDoesNotCreateAnotherModelTurn(t *testing.T) {
 		news, wantNotify bool
 	}{
 		{"question", "ask", false, false},
+		{"draft", "draft_goal", false, false},
 		{"goal", "propose_goal", false, false},
 		{"task", "propose_task", false, false},
 		{"preserve-news", "ask", true, true},
@@ -351,7 +352,7 @@ func TestGoalApprovalAndAutonomousDecomposition(t *testing.T) {
 	if _, err = m.applyOrchestratorCommand(repo, task); err != nil {
 		t.Fatal(err)
 	}
-	if len(m.state.Tasks) != 1 || !m.state.Tasks[0].Queued || m.state.Tasks[0].GoalID != goal.ID {
+	if len(m.state.Tasks) != 1 || m.state.Tasks[0].Queued || !m.state.Tasks[0].AwaitingExecution || m.state.Tasks[0].GoalID != goal.ID {
 		t.Fatal("authorized decomposition failed")
 	}
 	if _, err = m.applyOrchestratorCommand(repo, task); err == nil || len(m.state.Tasks) != 1 {

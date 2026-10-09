@@ -26,41 +26,48 @@ type ConversationMessage struct {
 	Seq      uint64 `json:"seq,omitempty"`
 	Delivery string `json:"delivery,omitempty"`
 }
+type GoalDraft struct {
+	Title         string `json:"title"`
+	Acceptance    string `json:"acceptance"`
+	OpenQuestions string `json:"open_questions,omitempty"`
+}
+
 type ProjectGoal struct {
 	ID         string `json:"id"`
 	Objective  string `json:"objective"`
 	Acceptance string `json:"acceptance"`
 }
 type Task struct {
-	GoalID         string           `json:"goal_id,omitempty"`
-	ID             string           `json:"id"`
-	Repo           string           `json:"repo"`
-	Title          string           `json:"title"`
-	Acceptance     string           `json:"acceptance"`
-	DependsOn      []string         `json:"depends_on,omitempty"`
-	Status         string           `json:"status"`
-	Worktree       *string          `json:"worktree"`
-	Branch         string           `json:"branch"`
-	Note           string           `json:"note"`
-	IssueURL       string           `json:"issue_url,omitempty"`
-	IssueBody      string           `json:"issue_body,omitempty"`
-	AgentRun       string           `json:"agent_run,omitempty"`
-	AgentProvider  string           `json:"agent_provider,omitempty"`
-	AgentConfig    *AgentConfig     `json:"agent_config,omitempty"`
-	AgentSeq       uint64           `json:"agent_seq,omitempty"`
-	AgentState     string           `json:"agent_state,omitempty"`
-	AgentMessage   string           `json:"agent_message,omitempty"`
-	AgentEvidence  []string         `json:"agent_evidence,omitempty"`
-	BaseCommit     string           `json:"base_commit,omitempty"`
-	BriefHash      string           `json:"brief_hash,omitempty"`
-	Queued         bool             `json:"queued,omitempty"`
-	Paused         bool             `json:"paused,omitempty"`
-	ManuallyPaused bool             `json:"manually_paused,omitempty"`
-	ReviewFeedback string           `json:"review_feedback,omitempty"`
-	AcceptedTree   string           `json:"accepted_tree,omitempty"`
-	Integration    *integrationPlan `json:"integration,omitempty"`
-	Publication    *githubPRPlan    `json:"publication,omitempty"`
-	NativeSession  *NativeSession   `json:"native_session,omitempty"`
+	GoalID            string           `json:"goal_id,omitempty"`
+	ID                string           `json:"id"`
+	Repo              string           `json:"repo"`
+	Title             string           `json:"title"`
+	Acceptance        string           `json:"acceptance"`
+	DependsOn         []string         `json:"depends_on,omitempty"`
+	Status            string           `json:"status"`
+	Worktree          *string          `json:"worktree"`
+	Branch            string           `json:"branch"`
+	Note              string           `json:"note"`
+	IssueURL          string           `json:"issue_url,omitempty"`
+	IssueBody         string           `json:"issue_body,omitempty"`
+	AgentRun          string           `json:"agent_run,omitempty"`
+	AgentProvider     string           `json:"agent_provider,omitempty"`
+	AgentConfig       *AgentConfig     `json:"agent_config,omitempty"`
+	AgentSeq          uint64           `json:"agent_seq,omitempty"`
+	AgentState        string           `json:"agent_state,omitempty"`
+	AgentMessage      string           `json:"agent_message,omitempty"`
+	AgentEvidence     []string         `json:"agent_evidence,omitempty"`
+	BaseCommit        string           `json:"base_commit,omitempty"`
+	BriefHash         string           `json:"brief_hash,omitempty"`
+	AwaitingExecution bool             `json:"awaiting_execution,omitempty"`
+	Queued            bool             `json:"queued,omitempty"`
+	Paused            bool             `json:"paused,omitempty"`
+	ManuallyPaused    bool             `json:"manually_paused,omitempty"`
+	ReviewFeedback    string           `json:"review_feedback,omitempty"`
+	AcceptedTree      string           `json:"accepted_tree,omitempty"`
+	Integration       *integrationPlan `json:"integration,omitempty"`
+	Publication       *githubPRPlan    `json:"publication,omitempty"`
+	NativeSession     *NativeSession   `json:"native_session,omitempty"`
 }
 type Decision struct {
 	Number              int     `json:"number,omitempty"`
@@ -86,6 +93,7 @@ type State struct {
 	Tasks                []Task                           `json:"tasks"`
 	Decisions            []Decision                       `json:"decisions"`
 	Orchestrator         *AgentConfig                     `json:"orchestrator"`
+	DraftGoals           map[string]GoalDraft             `json:"draft_goals,omitempty"`
 	Goals                map[string]ProjectGoal           `json:"goals,omitempty"`
 	Conversations        map[string][]ConversationMessage `json:"conversations,omitempty"`
 	PausedProjects       map[string]bool                  `json:"paused_projects,omitempty"`

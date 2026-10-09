@@ -93,6 +93,9 @@ func frame(title, body string, w, h int, c color.Color, focused bool) string {
 
 func section(title string, w int) string { return accent(title, cyan) + "\n" + rule(w, cyan) }
 func (m *model) headerRows() int {
+	if m.panelMaximized || (m.view == 2 && m.terminals.zoomedID != "") {
+		return 1
+	}
 	if m.width < 76 || m.height < 26 {
 		return 3
 	}
@@ -107,6 +110,10 @@ func (m *model) footerRows() int {
 func (m *model) workspaceHeight() int { return max(1, m.height-m.headerRows()-m.footerRows()) }
 func (m *model) header() string {
 	w := max(1, m.width)
+	if m.headerRows() == 1 {
+		mark := " " + brandTail + " "
+		return fit(accent(mark, cyan)+m.tabsForWidth(w-ansi.StringWidth(mark)), w, 1)
+	}
 	pending := 0
 	for _, d := range m.state.Decisions {
 		if d.Answer == nil {
@@ -120,16 +127,30 @@ func (m *model) header() string {
 		}
 		return fit(accent(" fluke / ", cyan)+label+accent(fmt.Sprintf("   %d/%d workers", m.liveWorkers(), m.state.MaxWorkers), lime)+"\n"+m.tabs()+"\n"+rule(w, cyan), w, 3)
 	}
-	return m.brandHeader(m.tabs())
+	return m.brandHeader(m.tabsForWidth(w - 2))
 }
 
 func (m *model) tabs() string {
-	labels := []string{localText("[F1] Projects", "[F1] Proyectos"), uiText("[F2] Proyecto"), uiText("[F3] Sesiones"), uiText("[F4] Decisiones"), "F5 Config", "F6 GitHub", "F7 Review"}
-	if m.width < 120 {
-		labels = []string{localText("F1 Projects", "F1 Proyectos"), uiText("F2 Proyecto"), uiText("F3 Sesiones"), uiText("F4 Decisiones"), "F5 Config", "F6 GitHub", "F7 Review"}
+	return m.tabsForWidth(m.width)
+}
+
+func (m *model) tabsForWidth(w int) string {
+	labels := []string{localText("[F1] Projects", "[F1] Proyectos"), localText("[F2] Workspace", "[F2] Trabajo"), localText("[F3] Terminals", "[F3] Terminales"), "[F4] Brief", localText("F5 Settings", "F5 Ajustes"), "F6 GitHub", localText("F7 Review", "F7 Revisión")}
+	if w < 120 {
+		labels = []string{localText("F1 Projects", "F1 Proyectos"), localText("F2 Workspace", "F2 Trabajo"), localText("F3 Terminals", "F3 Terminales"), "F4 Brief", localText("F5 Settings", "F5 Ajustes"), "F6 GitHub", localText("F7 Review", "F7 Revisión")}
 	}
-	if m.width < 88 {
-		labels = []string{localText("F1 All", "F1 Todos"), "F2 Repo", "F3 PTY", uiText("F4 Decidir"), "F5", "F6 GH", "F7 Diff"}
+	labelWidth := func() int {
+		total := len(labels)*2 + len(labels) - 1
+		for _, label := range labels {
+			total += ansi.StringWidth(label)
+		}
+		return total
+	}
+	if labelWidth() > w {
+		labels = []string{localText("F1 Proj", "F1 Proy"), localText("F2 Work", "F2 Trabajo"), "F3 Term", "F4 Brief", localText("F5 Set", "F5 Ajust"), "F6 GH", "F7 Rev"}
+	}
+	if labelWidth() > w {
+		labels = []string{"F1", "F2", "F3", "F4", "F5", "F6", "F7"}
 	}
 	parts := []string{}
 	for i, label := range labels {
@@ -154,6 +175,16 @@ func (m *model) footer() string {
 	if m.view == 1 && m.pane == 0 {
 		keys = accent(localText(" [↑/↓] Task   [Enter] Worker   [m] Message   [q] Queue   [v/F7] Review   [p] Pause/resume", " [↑/↓] Tarea   [Enter] Worker   [m] Mensaje   [q] Cola   [v/F7] Revisar   [p] Pausar/seguir"), cyan)
 	}
+	if m.view == 1 && m.pane == 2 {
+		keys = accent(localText(" [↑/↓] Agent   [Enter] Open session   [F7] Review", " [↑/↓] Agente   [Enter] Abrir sesión   [F7] Revisar"), cyan)
+	}
+	if m.view != 2 {
+		label := localText(" [F8/Ctrl+F] Maximize focused panel", " [F8/Ctrl+F] Maximizar panel")
+		if m.panelMaximized {
+			label = localText(" [F8/Ctrl+F] Restore panels", " [F8/Ctrl+F] Restaurar paneles")
+		}
+		keys = accent(label, cyan) + keys
+	}
 	if m.view == 0 && m.pane == 2 {
 		keys = accent(localText(" [↑/↓] Alert   [Enter] Open project / task / session   [Tab] Panel", " [↑/↓] Alerta   [Enter] Abrir proyecto / tarea / sesión   [Tab] Panel"), cyan)
 	}
@@ -165,6 +196,9 @@ func (m *model) footer() string {
 			first = accent(uiText("TERMINAL: entrada directa"), cyan) + " │ " + message
 			keys = accent(uiText(" [Ctrl+X] Ventanas   [Shift+PgUp/PgDn] Historial   [Shift+End] En vivo   [Ctrl+Y] Copiar"), cyan)
 		}
+	}
+	if m.view == 2 {
+		keys = accent(localText(" [Ctrl+F/F8] Maximize/restore", " [Ctrl+F/F8] Maximizar/restaurar"), cyan) + keys
 	}
 	if m.home && m.view == 0 {
 		keys = accent(localText(" [N] New project   [O] Open   [↑/↓] Choose   [Enter] Tasks   [C] Chat   [Tab] Attention", " [N] Nuevo proyecto   [O] Abrir   [↑/↓] Elegir   [Enter] Tareas   [C] Chat   [Tab] Atención"), cyan)
@@ -192,6 +226,9 @@ func (m *model) footer() string {
 				keys = accent(uiText(" [Tab] Campo   [Enter] Nueva línea   [Ctrl+U] Limpiar   [Ctrl+S] Vista previa   [Esc] Vista previa"), cyan)
 			}
 		}
+	}
+	if m.view == 3 && !m.config && !m.githubOpen && !m.review.open {
+		keys = accent(localText(" [Tab] Brief/decisions   [PgUp/PgDn] Read   [Ctrl+D] Reply in F2   [C] Chat   [Ctrl+F] Maximize", " [Tab] Brief/decisiones   [PgUp/PgDn] Leer   [Ctrl+D] Responder en F2   [C] Chat   [Ctrl+F] Maximizar"), cyan)
 	}
 	if m.command != nil {
 		first = accent(uiText(" COMANDO > "), pink) + tailText(*m.command, w-15) + accent("█", cyan)
@@ -337,7 +374,8 @@ func terminalPreview(w *terminalWindow, cols, rows int) string {
 func (m *model) conversation(w, h int, compact bool) string {
 	inside := max(1, w-4)
 	bodyRows := max(1, h-4)
-	entryRows := 4
+	inputRows := min(len(composerLines(m.chatDraft[m.repo], inside)), max(1, bodyRows-4))
+	entryRows := inputRows + 3
 	transcriptRows := max(1, bodyRows-entryRows)
 	content := ""
 	if messages := m.state.Conversations[m.repo]; len(messages) > 0 {
@@ -361,16 +399,32 @@ func (m *model) conversation(w, h int, compact bool) string {
 			content += accent(uiText("PRIMER ENCARGO"), cyan) + "\n" + wrap(uiText(":task título | criterio de aceptación"), inside) + "\n\n" + accent(uiText("F6 · importar una issue de GitHub"), muted)
 		}
 	}
+	if m.reviewedChatDecision() >= 0 {
+		content = m.chatDecisionContent(inside, transcriptRows)
+	}
 	state, hint := m.sessionSummary()
 	ink := cyan
 	if state == uiText("NECESITA TU ATENCIÓN") || state == uiText("DESCONECTADO") {
 		ink = amber
 	}
 	statusLine := strong(state+" · ", ink) + hint
+	if m.pendingChatDecision() >= 0 {
+		statusLine = strong(localText("DECISION · Ctrl+D to reply here", "DECISIÓN · Ctrl+D para responder acá"), amber)
+	}
+	if m.hasPendingPlanExecution() {
+		statusLine = strong(localText("EXECUTION PENDING · type run plan", "EJECUCIÓN PENDIENTE · ejecutar plan"), amber)
+	}
+	if index := m.reviewedChatDecision(); index >= 0 {
+		hint := localText("Answer here · Enter sends", "Respondé acá · Enter envía")
+		if m.state.Decisions[index].ProposedTitle != "" {
+			hint = localText("Type approve / reject · Enter", "Escribí apruebo / rechazo · Enter")
+		}
+		statusLine = strong(hint, amber)
+	}
 	if m.chatScroll > 0 {
 		statusLine = accent(uiText("HISTORIAL · PgDn vuelve a los mensajes recientes"), amber)
 	}
-	composer := ansi.Truncate(statusLine, inside, "…") + "\n" + brandComposer(m.chatDraft[m.repo], inside, m.pane == 1)
+	composer := ansi.Truncate(statusLine, inside, "…") + "\n" + brandComposerRows(m.chatDraft[m.repo], inside, m.pane == 1, inputRows)
 	return fit(content, inside, transcriptRows) + "\n" + fit(composer, inside, entryRows)
 }
 
@@ -378,7 +432,7 @@ func (m *model) globalView(w, h int) string {
 	if m.home {
 		return m.homeView(w, h)
 	}
-	if w < 92 {
+	if w < 92 || m.panelMaximized {
 		if m.pane == 0 {
 			return frame(uiText("PROYECTO / ")+filepath.Base(m.repo), m.contextContent(w-4), w, h, cyan, true)
 		}
@@ -401,10 +455,20 @@ func taskRow(t Task, i int, selected bool, w int) string {
 	return accent(fmt.Sprintf("%s %02d ", marker, i+1), cyan) + wrap(t.Title, max(1, w-5)) + "\n     " + accent(status(taskAgentStatus(t)), statusInk(taskAgentStatus(t))) + "  " + accent(t.ID[:min(9, len(t.ID))], muted)
 }
 func (m *model) planContent(w, h int) string {
+	if index := m.pendingGoalProposal(); index >= 0 {
+		d := m.state.Decisions[index]
+		return strong(localText("REQUIREMENTS / PROPOSED SCOPE", "REQUISITOS / ALCANCE PROPUESTO"), amber) + "\n" +
+			accent(localText("Chat · Ctrl+D to review and reply", "Chat · Ctrl+D para revisar y responder"), pink) + "\n\n" +
+			wrap(d.ProposedTitle, w) + "\n\n" + strong(localText("ACCEPTANCE CRITERIA", "CRITERIOS DE ACEPTACIÓN"), cyan) + "\n" + wrap(d.ProposedAcceptance, w)
+	}
 	tasks := m.projectTasks()
 	if len(tasks) == 0 && m.state.Goals[m.repo].ID != "" {
 		goal := m.state.Goals[m.repo]
 		return strong(uiText("CONTEXTO / ")+goal.Objective, cyan) + "\n" + wrap(goal.Acceptance, w) + "\n\n" + strong(uiText("OBJETIVO ACORDADO"), lime) + "\n\n" + wrap(uiText("Fluke prepara las tareas del plan. Podés conversar para afinarlo."), w)
+	}
+	if len(tasks) == 0 && m.state.DraftGoals[m.repo].Title != "" {
+		draft := m.state.DraftGoals[m.repo]
+		return strong(localText("REQUIREMENTS / DRAFT", "REQUISITOS / BORRADOR"), amber) + "\n\n" + wrap(draft.Title, w) + "\n\n" + wrap(draft.Acceptance, w) + "\n\n" + wrap(draft.OpenQuestions, w)
 	}
 	if len(tasks) == 0 {
 		return strong(uiText("TU PRÓXIMA MISIÓN"), cyan) + "\n\n" + wrap(uiText("Definí qué tiene que quedar listo y cómo lo vas a comprobar."), w) + "\n\n" + accent(uiText(":task título | criterio de aceptación"), pink) + "\n\n" + accent(uiText("F6 · traer una issue de GitHub"), muted)
@@ -416,7 +480,11 @@ func (m *model) planContent(w, h int) string {
 	if goal.ID != "" {
 		title, acceptance = goal.Objective, goal.Acceptance
 	}
-	content := strong(uiText("CONTEXTO / ")+title, cyan) + "\n" + wrap(acceptance, w) + "\n\n"
+	content := ""
+	if m.hasPendingPlanExecution() {
+		content = accent(localText("EXECUTION PENDING · chat: run plan", "EJECUCIÓN PENDIENTE · chat: ejecutar plan"), amber) + "\n"
+	}
+	content += strong(uiText("CONTEXTO / ")+title, cyan) + "\n" + wrap(acceptance, w) + "\n\n"
 	if err := taskScopeError(m.state, current); err != nil && current.Status != "accepted" {
 		content += strong(uiText("REVISAR ALCANCE"), amber) + "\n" + wrap(err.Error(), w) + "\n\n"
 	} else if current.Paused && current.Note != "" {
@@ -501,9 +569,21 @@ func (m *model) workerPreviews(w, h int) string {
 		}
 		return frame(uiText("WORKERS / TERMINALES"), strong(uiText("EL ESPACIO DE EJECUCIÓN"), cyan)+"\n\n"+wrap(uiText("Cada tarea abre su propia sesión y su worktree. Los workers aparecen acá cuando los iniciás o Fluke los toma de la cola."), w-4)+"\n\n"+accent(uiText("[Enter] iniciar tarea seleccionada"), pink), w, h, cyan, m.pane == 2)
 	}
-	count := min(2, len(windows)-start)
-	colW := (w - count + 1) / count
-	parts := []string{}
+	columns, gridRows := 2, 1
+	if m.panelMaximized && m.pane == 2 {
+		columns, gridRows = max(1, w/48), max(1, h/10)
+		for i, task := range windows {
+			if task.ID == selectedID {
+				start = i / (columns * gridRows) * (columns * gridRows)
+			}
+		}
+	}
+	count := min(columns*gridRows, len(windows)-start)
+	columns = min(columns, count)
+	gridRows = (count + columns - 1) / columns
+	colW := (w - columns + 1) / columns
+	cellH := max(1, (h-gridRows+1)/gridRows)
+	parts, renderedRows := []string{}, []string{}
 	for i := 0; i < count; i++ {
 		t := windows[start+i]
 		ink := statusInk(taskAgentStatus(t))
@@ -511,7 +591,7 @@ func (m *model) workerPreviews(w, h int) string {
 		if t.AgentProvider == "" {
 			meta = accent(shortBranch(t.Branch), muted)
 		}
-		rows := max(1, h-9)
+		rows := max(1, cellH-9)
 		activity := accent(uiText("Sin reporte todavía.\nF3 abre la sesión completa."), muted)
 		if t.AgentMessage != "" {
 			activity = strong("worker> ", cyan) + wrap(conciseAgentMessage(t.AgentMessage), max(1, colW-12))
@@ -520,15 +600,28 @@ func (m *model) workerPreviews(w, h int) string {
 			}
 		}
 		body := meta + "\n" + rule(colW-4, muted) + "\n" + fit(activity, colW-4, rows) + "\n" + rule(colW-4, cyan) + "\n" + strong(status(taskAgentStatus(t)), ink) + "\n" + accent(uiText("F3 abrir sesión · F7 revisar diff"), muted)
-		parts = append(parts, frame(t.Title, body, colW, h, cyan, m.pane == 2 && t.ID == selectedID))
-		if i < count-1 {
+		parts = append(parts, frame(t.Title, body, colW, cellH, cyan, m.pane == 2 && t.ID == selectedID))
+		if i%columns == columns-1 || i == count-1 {
+			renderedRows = append(renderedRows, lipgloss.JoinHorizontal(lipgloss.Top, parts...))
+			parts = nil
+		} else {
 			parts = append(parts, " ")
 		}
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, parts...)
+	return strings.Join(renderedRows, "\n")
 }
 
 func (m *model) projectView(w, h int) string {
+	if m.panelMaximized {
+		switch m.pane {
+		case 0:
+			return frame(uiText("MISIÓN / ")+strings.ToUpper(filepath.Base(m.repo)), m.planContent(w-4, h-4), w, h, cyan, true)
+		case 2:
+			return m.workerPreviews(w, h)
+		default:
+			return frame(localText("FLUKE / CHAT · Ctrl+F restore", "FLUKE / CHAT · Ctrl+F restaurar"), m.conversation(w, h, true), w, h, cyan, true)
+		}
+	}
 	if w < 92 || h < 20 {
 		if m.pane == 1 {
 			return frame(uiText("FLUKE SIGUE EL PROYECTO"), m.conversation(w, h, true), w, h, cyan, true)
@@ -548,72 +641,6 @@ func (m *model) projectView(w, h int) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, overview+"\n"+m.workerPreviews(left, h-upper-1), " ", frame(uiText("FLUKE SIGUE EL PROYECTO"), m.conversation(right, h, true), right, h, cyan, m.pane == 1))
 }
 
-func (m *model) decisionsView(w, h int) string {
-	left := max(23, w/5)
-	mainW := w - left - 1
-	if w < 92 {
-		mainW = w
-	}
-	question := uiText("Sin decisiones pendientes.")
-	answer := ""
-	index := m.selectedDecision()
-	taskID := ""
-	if index >= 0 {
-		d := m.state.Decisions[index]
-		question = d.Question
-		taskID = d.TaskID
-		if d.Answer != nil {
-			answer = *d.Answer
-		}
-	}
-	title := uiText("NECESITA TU DECISIÓN")
-	ink := pink
-	if answer != "" {
-		title = uiText("DECISIÓN REGISTRADA")
-		ink = lime
-	}
-	decisionHelp := uiText("[Enter] Responder ahora")
-	if index >= 0 && m.state.Decisions[index].Answer != nil {
-		decisionHelp = localText("[Enter] Correct answer (history preserved)", "[Enter] Corregir respuesta (historial conservado)")
-	}
-	if index >= 0 && m.state.Decisions[index].ProposedTitle != "" {
-		decisionHelp = uiText("[Enter] Aprobar propuesta · [r] Rechazar")
-	}
-	questionBody := "\n" + accent(fmt.Sprintf(uiText("DECISIÓN %02d"), index+1), ink) + "\n\n" + wrap(question, max(1, mainW-6))
-	if answer != "" {
-		questionBody += "\n\n" + accent(uiText("RESPUESTA"), lime) + "\n" + wrap(answer, max(1, mainW-6))
-	}
-	if index >= 0 && m.state.Decisions[index].Supersedes > 0 {
-		questionBody += "\n\n" + accent(fmt.Sprintf(localText("Replaces answer %02d", "Reemplaza respuesta %02d"), m.state.Decisions[index].Supersedes), amber)
-	}
-	if w < 92 {
-		if m.pane == 1 {
-			return frame(localText("FLUKE / PROJECT CHAT", "FLUKE / CHAT DEL PROYECTO"), m.conversation(w, h, true), w, h, cyan, true)
-		}
-		return frame(uiText("DECISIONES HUMANAS / ")+title, questionBody+"\n\n"+decisionHelp, w, h, ink, true)
-	}
-	upper := max(9, h/2)
-	questionW := mainW * 3 / 5
-	previewW := mainW - questionW - 1
-	preview := uiText("La decisión se conserva en el proyecto.\n\nLas sesiones mantienen su contexto mientras decidís.")
-	for _, t := range m.projectTasks() {
-		if taskID != "" && t.ID != taskID {
-			continue
-		}
-		preview = strong(t.Title, cyan) + "\n" + accent(status(taskAgentStatus(t)), statusInk(taskAgentStatus(t))) + "\n\n" + wrap(t.Acceptance, previewW-4)
-		if t.AgentMessage != "" {
-			preview += "\n\n" + wrap(conciseAgentMessage(t.AgentMessage), previewW-4)
-		}
-		if len(t.AgentEvidence) > 0 {
-			preview += "\n\n" + accent(uiText("EVIDENCIA"), cyan) + "\n" + strings.Join(t.AgentEvidence, "\n")
-		}
-		break
-	}
-	top := lipgloss.JoinHorizontal(lipgloss.Top, frame(uiText("DECISIONES HUMANAS / ")+title, questionBody, questionW, upper, ink, m.pane == 0), " ", frame(uiText("SESIÓN / CONTEXTO"), preview, previewW, upper, cyan, false))
-	actions := accent(decisionHelp, pink) + "   " + accent(uiText("[Tab] Hablar con Fluke"), cyan) + "\n\n"
-	lower := frame(uiText("FLUKE / CONVERSACIÓN"), actions+m.conversation(mainW, max(1, h-upper-3), true), mainW, max(4, h-upper-1), cyan, m.pane == 1)
-	return lipgloss.JoinHorizontal(lipgloss.Top, frame(uiText("PROYECTO / SESIONES"), m.contextContent(left-4), left, h, cyan, false), " ", top+"\n"+strings.Repeat(" ", mainW)+"\n"+lower)
-}
 func (m *model) configView(w, h int) string {
 	if m.configSection == 1 {
 		return m.githubConfigView(w, h)

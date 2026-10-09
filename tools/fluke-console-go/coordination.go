@@ -173,6 +173,9 @@ func (m *model) queueTask(id string, queued bool) {
 		next := m.state
 		next.Tasks = append([]Task{}, next.Tasks...)
 		next.Tasks[i].Queued = queued
+		if queued {
+			next.Tasks[i].AwaitingExecution = false
+		}
 		if m.saveEdit(next, uiText("Cola actualizada.")) && !queued && m.preparingTaskID == id && m.preparingQueued {
 			m.cancelPreparing = true
 		}
@@ -188,7 +191,7 @@ func (m *model) drainQueue() tea.Cmd {
 	check := m.checkDependencies()
 	checksCurrent := m.dependencyHash == dependencyStateHash(m.state) && time.Since(m.dependencyChecked) < 5*time.Second
 	for _, task := range m.state.Tasks {
-		if task.Queued && !task.Paused && !m.state.PausedProjects[task.Repo] && taskScopeError(m.state, task) == nil && (task.Status == "pending" || task.Status == "interrupted") {
+		if task.Queued && !task.AwaitingExecution && !task.Paused && !m.state.PausedProjects[task.Repo] && taskScopeError(m.state, task) == nil && (task.Status == "pending" || task.Status == "interrupted") {
 			if len(task.DependsOn) > 0 {
 				reason, checked := m.dependencyChecks[task.ID]
 				if !checked || reason != "" || !checksCurrent {
@@ -234,7 +237,7 @@ func (m *model) coordinationPending() bool {
 		}
 	}
 	for _, task := range m.state.Tasks {
-		if task.Queued && !task.Paused && !m.state.PausedProjects[task.Repo] && m.state.Orchestrator != nil {
+		if task.Queued && !task.AwaitingExecution && !task.Paused && !m.state.PausedProjects[task.Repo] && m.state.Orchestrator != nil {
 			return true
 		}
 	}

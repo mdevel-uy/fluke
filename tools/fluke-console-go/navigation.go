@@ -19,6 +19,15 @@ func (m *model) globalKey(key string) (bool, tea.Cmd) {
 		m.selected, m.chatScroll = 0, 0
 	}
 	switch key {
+	case "f8", "ctrl+f":
+		if m.config || m.githubOpen || m.review.open || m.projects.open || m.command != nil || m.workerMessageID != "" {
+			return false, nil
+		}
+		if m.view == 2 {
+			return true, m.terminals.ToggleZoom()
+		}
+		m.panelMaximized = !m.panelMaximized
+		return true, nil
 	case "f1", "f2", "f3", "f4":
 		m.closePanels()
 		m.view = int(key[1] - '1')
@@ -29,6 +38,7 @@ func (m *model) globalKey(key string) (bool, tea.Cmd) {
 		}
 		m.selected = 0
 		m.pane = 0
+		m.briefScroll, m.decisionScroll = 0, 0
 		if m.view == 0 {
 			for i, repo := range m.state.Projects {
 				if repo == m.repo {
@@ -47,6 +57,20 @@ func (m *model) globalKey(key string) (bool, tea.Cmd) {
 					break
 				}
 				local++
+			}
+		}
+		if m.view == 3 {
+			if index := m.pendingGoalProposal(); index >= 0 {
+				local := 0
+				for i, decision := range m.state.Decisions {
+					if decision.Repo == m.repo {
+						if i == index {
+							m.selected = local
+							break
+						}
+						local++
+					}
+				}
 			}
 		}
 		if m.view == 2 && m.sessionAlive("fluke:"+m.repo) {
@@ -112,6 +136,8 @@ func (m *model) globalKey(key string) (bool, tea.Cmd) {
 }
 
 func (m *model) closePanels() {
+	m.panelMaximized = false
+	m.chatDecision, m.chatDecisionScroll = 0, 0
 	if !m.projects.busy {
 		m.projects.open = false
 	}
@@ -182,4 +208,15 @@ func configLabel(a *AgentConfig) string {
 		name = localText("default", "predeterminado")
 	}
 	return fmt.Sprintf("%s / %s", a.Provider, name)
+}
+
+// Return the newest pending scope for this project, ahead of older questions.
+func (m *model) pendingGoalProposal() int {
+	for i := len(m.state.Decisions) - 1; i >= 0; i-- {
+		d := m.state.Decisions[i]
+		if d.Repo == m.repo && d.ProposedGoal && d.ProposedTitle != "" && d.Answer == nil {
+			return i
+		}
+	}
+	return -1
 }

@@ -283,7 +283,7 @@ func (m *model) homeProjects(w, h int) string {
 }
 
 func (m *model) homeView(w, h int) string {
-	if w < 92 {
+	if w < 92 || m.panelMaximized {
 		if m.pane == 2 {
 			return frame(localText("ACROSS YOUR PROJECTS / ATTENTION", "TODOS TUS PROYECTOS / ATENCIÓN"), m.attentionContent(w-4), w, h, cyan, true)
 		}
