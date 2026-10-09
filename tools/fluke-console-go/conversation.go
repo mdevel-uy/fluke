@@ -182,6 +182,8 @@ func (m *model) receiveChatSent(v chatSentResult) bool {
 		if v.Err == nil {
 			s.ReplyStarted = time.Now()
 		}
+		s.nativeAwaiting = v.Err == nil && s.nativePrepared
+		s.nativePrepared = false
 	}
 	if v.Err != nil {
 		m.notice = uiText("Envío incierto. Revisá la sesión antes de reenviar.")
@@ -224,7 +226,7 @@ func (m *model) dispatchChats() tea.Cmd {
 			m.failPendingChat(repo)
 			continue
 		}
-		if s.ChatWriting || s.PendingChat.Err != nil {
+		if s.ChatWriting || s.nativeAwaiting || s.PendingChat.Err != nil {
 			continue
 		}
 		title, screen := w.agentSignals()
@@ -233,8 +235,9 @@ func (m *model) dispatchChats() tea.Cmd {
 		}
 		msg := *s.PendingChat
 		provider := s.Provider
+		prompt := m.nativeChatPrompt(repo, msg.Text)
 		s.ChatWriting = true
-		commands = append(commands, func() tea.Msg { msg.Err = w.sendQueuedChat(provider, msg.Text); return msg })
+		commands = append(commands, func() tea.Msg { msg.Err = w.sendQueuedChat(provider, prompt); return msg })
 	}
 	return tea.Batch(commands...)
 }

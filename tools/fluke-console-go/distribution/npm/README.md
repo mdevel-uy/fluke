@@ -5,7 +5,7 @@ for Windows, Linux and macOS, on x64 and ARM64, are included in this package.
 Node.js 22 or newer is required for the npm launcher; Go is not required.
 
 ```sh
-npm install -g --allow-remote=all https://github.com/mdevel-uy/fluke/releases/download/console-v0.1.0-beta.1/mdevel-fluke-0.1.0-beta.1.tgz
+npm install -g --allow-remote=all https://github.com/mdevel-uy/fluke/releases/download/console-v0.1.0-beta.2/mdevel-fluke-0.1.0-beta.2.tgz
 fluke --lang es
 fluke --version
 fluke --repo /path/to/your/project

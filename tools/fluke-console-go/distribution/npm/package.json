@@ -1,6 +1,6 @@
 {
   "name": "@mdevel/fluke",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "description": "Fluke Console: a terminal workspace for projects and coding agents",
   "license": "Apache-2.0",
   "repository": {
@@ -8,11 +8,33 @@
     "url": "git+https://github.com/mdevel-uy/fluke.git",
     "directory": "tools/fluke-console-go/distribution/npm"
   },
-  "bin": { "fluke": "cli.cjs" },
-  "engines": { "node": ">=22" },
-  "os": ["linux", "darwin", "win32"],
-  "cpu": ["x64", "arm64"],
-  "files": ["cli.cjs", "verify.cjs", "bin", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"],
-  "scripts": { "prepack": "node verify.cjs" },
-  "publishConfig": { "access": "public" }
+  "bin": {
+    "fluke": "cli.cjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "files": [
+    "cli.cjs",
+    "verify.cjs",
+    "bin",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "scripts": {
+    "prepack": "node verify.cjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

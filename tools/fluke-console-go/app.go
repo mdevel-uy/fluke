@@ -62,6 +62,7 @@ type model struct {
 	authGeneration, authSelected       int
 	authConfirm                        bool
 	workerTickPending                  bool
+	nativeReplyTickPending             bool
 	idleSince                          map[string]time.Time
 	preparingWorker                    bool
 	preparingTaskID                    string
@@ -266,7 +267,7 @@ func (m *model) startSession(taskID string, background bool) tea.Cmd {
 		}
 		return func() tea.Msg {
 			runID, path, err := prepareOrchestrator(repo, snapshot)
-			prompt := "Fluke · " + filepath.Base(repo) + " · Orchestrator\nRun activo de Fluke: " + runID + ". Sos el orquestador de Fluke. Leé el contrato local " + filepath.Join(path, "contract.md") + " y su contexto. Organizá las tareas autorizadas usando el canal de órdenes del contrato. Proponé nuevos alcances para aprobación humana; no hagas merge. Cuando necesites esperar workers, terminá el turno: Fluke te notificará los cambios."
+			prompt := "Fluke · " + filepath.Base(repo) + "\nRun activo de Fluke: " + runID + ". Conversá con el humano de forma natural y respondé a su mensaje. Leé una vez el contrato local " + filepath.Join(path, "contract.md") + ". Consultá su contexto cuando el pedido requiera coordinar trabajo; no hace falta para saludos o charla. Si pide ejecutar trabajo, coordiná dentro del alcance aprobado usando el contrato. Cuando necesites esperar workers, terminá el turno: Fluke te notificará los cambios."
 			if strings.TrimSpace(initialMessage) != "" {
 				prompt += "\nPedido inicial del humano: " + initialMessage
 			}
@@ -671,7 +672,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case chatSentResult:
 		m.receiveChatSent(v)
-		return m, m.scheduleWorkerTick()
+		return m, tea.Batch(m.scheduleWorkerTick(), m.scheduleNativeReplyTick())
 	case taskReviewResult:
 		m.review.receive(v)
 		return m, nil
@@ -699,6 +700,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.reconcile()
 		m.pollOrchestrators()
 		return m, tea.Batch(m.dispatchChats(), m.wakeOrchestrators(), m.continueAnsweredWorkers(), m.drainQueue(), m.scheduleWorkerTick())
+	case nativeReplyTick:
+		m.nativeReplyTickPending = false
+		m.readOrchestratorMessages()
+		m.readNativeReplies()
+		m.refreshOrchestrators(false)
+		return m, m.scheduleNativeReplyTick()
 	case githubAuthResult:
 		if v.Generation != m.authGeneration {
 			return m, nil

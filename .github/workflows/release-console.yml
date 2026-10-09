@@ -11,7 +11,7 @@ on:
     inputs:
       version:
         description: 'Version (X.Y.Z or X.Y.Z-beta.N)'
-        default: '0.1.0-beta.1'
+        default: '0.1.0-beta.2'
         required: true
         type: string
       dry_run:

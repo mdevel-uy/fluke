@@ -9,13 +9,13 @@ sessions. Herdr and Tuios informed the research; neither is embedded.
 Install Node.js 22 or newer, npm and Git, then run:
 
 ```sh
-npm install -g --allow-remote=all https://github.com/mdevel-uy/fluke/releases/download/console-v0.1.0-beta.1/mdevel-fluke-0.1.0-beta.1.tgz
+npm install -g --allow-remote=all https://github.com/mdevel-uy/fluke/releases/download/console-v0.1.0-beta.2/mdevel-fluke-0.1.0-beta.2.tgz
 fluke --lang es
 ```
 
 The package includes x64 and ARM64 executables. No Go installation or npm
 account is required for this download. Native archives are also available in
-[GitHub Releases](https://github.com/mdevel-uy/fluke/releases/tag/console-v0.1.0-beta.1).
+[GitHub Releases](https://github.com/mdevel-uy/fluke/releases/tag/console-v0.1.0-beta.2).
 The package is not yet published to the npm registry. Install and authenticate
 Claude Code or Codex CLI separately to use those agents.
 
@@ -26,7 +26,7 @@ Claude Code or Codex CLI separately to use those agents.
 The repository is public. Install Git and Go 1.26.6 or newer, then run:
 
 ```sh
-git clone --branch console-v0.1.0-beta.1 https://github.com/mdevel-uy/fluke.git
+git clone --branch console-v0.1.0-beta.2 https://github.com/mdevel-uy/fluke.git
 cd fluke/tools/fluke-console-go
 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o fluke .
 ./fluke --lang es

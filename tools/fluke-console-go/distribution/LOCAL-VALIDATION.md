@@ -52,3 +52,25 @@ npm tarball can be installed without an npm account. ARM64 binaries were
 cross-built where the native runner uses x64. This validation establishes a
 short local Claude response and the queued-chat regression, not an entire
 sustained orchestrator/worker workflow on every target platform.
+
+## Conversational chat — beta.2
+
+The orchestrator answers conversational questions without routinely reading task
+context, and its tone no longer requires every exchange to become a project goal.
+Registering a question or scope proposal preserves its ack without starting an
+extra model turn to restate that it is waiting. Human chat takes priority over
+automatic coordination notifications.
+
+For an exact, verified Codex or Claude native session with a recognized final
+answer format, subsequent chat replies go straight to F2 from the local native
+transcript. Historical messages, tools, commentary and reasoning are excluded.
+The file report remains the fallback when a native channel cannot be verified,
+and remains available for coordination updates. Only active reply waits use the
+200ms conversation timer; worker reconciliation keeps its existing cadence.
+
+Regression tests cover identity, final-answer filtering, partial writes, history
+replay, storage failures, chat priority, proposal acknowledgments and idle timers.
+A real Codex follow-up returned a normal final answer without tool calls: native
+turn duration was 3.421s, versus 10.914s for the earlier equivalent question using
+a report-file write. CLI startup is excluded from these native turn measurements;
+a single pair of turns does not establish typical latency or a guarantee.
