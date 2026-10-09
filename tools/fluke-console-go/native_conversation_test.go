@@ -221,6 +221,12 @@ func TestNativeConversationOnlyDisplaysFinalAssistantText(t *testing.T) {
 			}
 		}
 	}
+	mixed := nativeFinalFixture("claude", id, "Visible")
+	mixed["message"].(map[string]any)["content"] = []any{map[string]any{"type": "thinking", "thinking": "PRIVATE"}, map[string]any{"type": "text", "text": "Visible"}}
+	data, _ := json.Marshal(mixed)
+	if nativeFinalReply("claude", id, data) != "Visible" {
+		t.Fatal("mixed final reply leaked thinking or lost visible text")
+	}
 }
 
 func TestNativeReplyWaitsForCompleteLineAndRetriesFailedSave(t *testing.T) {

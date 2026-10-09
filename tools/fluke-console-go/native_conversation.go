@@ -215,6 +215,9 @@ func nativeFinalReply(provider, sessionID string, line []byte) string {
 			return ""
 		}
 		for _, c := range event.Message.Content {
+			if c.Type == "thinking" || c.Type == "redacted_thinking" {
+				continue
+			}
 			if c.Type != "text" {
 				return ""
 			}
@@ -250,7 +253,7 @@ func (m *model) nativeChatPrompt(repo, text string) string {
 		return text
 	}
 	s.nativePrepared = true
-	return "[Fluke: respuesta nativa verificada]\nF2 recibe tu respuesta final directamente. Para charla o dudas, respondé en texto normal sin herramientas ni update.json. Si el pedido necesita coordinar trabajo, conservá el contrato de acciones.\nMensaje humano: " + text
+	return "[Fluke: respuesta nativa verificada]\nF2 recibe tu respuesta final directamente, sin update.json. Si podés responder con lo que ya sabés, no uses herramientas. Consultá el contexto o archivos cuando el pedido necesite datos actuales del proyecto; conservá el contrato de acciones para coordinar trabajo.\nMensaje humano: " + text
 }
 
 func (m *model) readNativeReplies() {
