@@ -4,15 +4,29 @@ A terminal workspace for your project: agree on a goal, let Fluke coordinate
 workers, and review their changes before merging. Fluke owns its interface and
 sessions. Herdr and Tuios informed the research; neither is embedded.
 
+## Install the public beta (Windows, Linux or macOS)
+
+Install Node.js 22 or newer, npm and Git, then run:
+
+```sh
+npm install -g --allow-remote=all https://github.com/mdevel-uy/fluke/releases/download/console-v0.1.0-beta.2/mdevel-fluke-0.1.0-beta.2.tgz
+fluke --lang es
+```
+
+The package includes x64 and ARM64 executables. No Go installation or npm
+account is required for this download. Native archives are also available in
+[GitHub Releases](https://github.com/mdevel-uy/fluke/releases/tag/console-v0.1.0-beta.2).
+The package is not yet published to the npm registry. Install and authenticate
+Claude Code or Codex CLI separately to use those agents.
+
 ## Linux / Omarchy
 
 ### Build from GitHub
 
-The repository is private; cloning requires an account with access. Install
-Git and Go 1.26.6 or newer, then run:
+The repository is public. Install Git and Go 1.26.6 or newer, then run:
 
 ```sh
-git clone --branch codex/fluke-console-go https://github.com/mdevel-uy/fluke.git
+git clone --branch console-v0.1.0-beta.2 https://github.com/mdevel-uy/fluke.git
 cd fluke/tools/fluke-console-go
 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o fluke .
 ./fluke --lang es
@@ -39,10 +53,15 @@ run `~/.local/bin/fluke` directly. Git is required; GitHub CLI (`gh`) is optiona
 Use a terminal with Unicode and color support, such as Omarchy's terminal.
 The builds do not require a separate Go installation or CGO at runtime.
 
-Native Linux/macOS execution is still awaiting verification. These binaries
-are development builds, not a release tested on Omarchy.
+The beta passed native Go tests and npm installation checks on Windows, Linux
+and macOS. Interactive agent workflows still require testing on each target
+terminal; Omarchy has not been tested separately.
 
 ## First launch
+
+The initial GitHub Releases/npm distribution pipeline is documented in
+[`distribution/README.md`](distribution/README.md). Installation by the GitHub tarball URL is available now; installation by
+registry package name remains pending npm account authorization.
 
 Fluke starts with its animated whale-tail logo and original pixel wordmark.
 Enter starts setup immediately. Ctrl+L switches English and
@@ -88,10 +107,11 @@ running, and workers share one global concurrency limit.
 ## Everyday controls
 
 - **F1:** all projects, create/open a project and global attention.
-- **F2:** selected project's goal, tasks, workers and conversation; Tab changes panel.
-- **F3:** inspect or talk directly to a worker session.
-- **F4:** decisions about product and scope.
-- **F5:** harness/model, worker limit and GitHub settings. Ctrl+E changes the UI
+- **F2 Workspace:** selected project's goal, tasks, workers and conversation; Tab changes panel.
+- **F3 Terminals:** inspect or talk directly to a worker session.
+- **F4:** the complete brief, requirements, open questions and decision history.
+  PgUp/PgDn scroll; Ctrl+F maximizes the focused panel. C returns to the chat in F2.
+- **F5 Settings:** harness/model, worker limit and GitHub settings. Ctrl+E changes the UI
   language; Ctrl+Enter applies a different model to the current project's
   orchestrator. From F1 it saves defaults without restarting background sessions.
 - **F6:** browse/import GitHub issues.
@@ -104,7 +124,8 @@ running, and workers share one global concurrency limit.
 In chat, `:` is ordinary text; use Ctrl+K for commands. Ctrl+U clears the draft.
 F7 follows the selected task, the task linked to a decision in F4, or the
 focused worker in F3. A decision without a task opens an empty review.
-On smaller terminals, Tab in F4 switches between the decision and project chat.
+Tab in F4 switches between the brief and decisions. Ctrl+D opens a pending
+decision in the same F2 chat. Type `show brief` in F2 to open the brief directly.
 Messages whose delivery cannot be confirmed remain marked as uncertain:
 check the native session before resending them.
 
@@ -114,7 +135,7 @@ for both the worker and Fluke before sending it. Enter sends; Shift+Enter adds
 a line; Esc closes the editor with no send. Unsent drafts survive panel changes.
 Native terminal entry remains available for CLI permissions and commands.
 
-In F4, Enter on an answered decision prepares a correction. `:amend N answer`
+In the F4 decisions panel, Enter on an answered question prepares a correction. `:amend N answer`
 keeps the original answer and appends a replacement with its source. Scope/task
 proposals use a new proposal; an integrated or published delivery needs a
 follow-up task. `:tell TASK_ID | message` is the command-line equivalent of **m**.

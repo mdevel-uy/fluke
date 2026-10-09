@@ -46,6 +46,11 @@ type model struct {
 	draft                              [5]string
 	pane                               int
 	chatDraft                          map[string]string
+	chatDecision                       int // global decision index + 1, zero is normal chat
+	chatDecisionScroll                 int
+	panelMaximized                     bool
+	briefScroll                        int
+	decisionScroll                     int
 	workerMessageID                    string
 	github                             map[string]githubSnapshot
 	githubOpen                         bool
@@ -62,6 +67,7 @@ type model struct {
 	authGeneration, authSelected       int
 	authConfirm                        bool
 	workerTickPending                  bool
+	nativeReplyTickPending             bool
 	idleSince                          map[string]time.Time
 	preparingWorker                    bool
 	preparingTaskID                    string
@@ -100,6 +106,11 @@ func newModel(store *Store, state State, repo string) *model {
 	m.githubFollowupCancel = map[string]context.CancelFunc{}
 	m.idleSince = map[string]time.Time{}
 	m.orchestration = map[string]*orchestratorSession{}
+	if !m.config && m.view == 1 {
+		if index := m.pendingGoalProposal(); index >= 0 {
+			m.chatDecision = index + 1
+		}
+	}
 	return m
 }
 func (m *model) Init() tea.Cmd {
@@ -266,7 +277,7 @@ func (m *model) startSession(taskID string, background bool) tea.Cmd {
 		}
 		return func() tea.Msg {
 			runID, path, err := prepareOrchestrator(repo, snapshot)
-			prompt := "Fluke · " + filepath.Base(repo) + " · Orchestrator\nRun activo de Fluke: " + runID + ". Sos el orquestador de Fluke. Leé el contrato local " + filepath.Join(path, "contract.md") + " y su contexto. Organizá las tareas autorizadas usando el canal de órdenes del contrato. Proponé nuevos alcances para aprobación humana; no hagas merge. Cuando necesites esperar workers, terminá el turno: Fluke te notificará los cambios."
+			prompt := "Fluke · " + filepath.Base(repo) + "\nRun activo de Fluke: " + runID + ". Conversá con el humano de forma natural y respondé a su mensaje. Leé una vez el contrato local " + filepath.Join(path, "contract.md") + ". Consultá su contexto cuando el pedido requiera coordinar trabajo; no hace falta para saludos o charla. Si pide ejecutar trabajo, coordiná dentro del alcance aprobado usando el contrato. Cuando necesites esperar workers, terminá el turno: Fluke te notificará los cambios."
 			if strings.TrimSpace(initialMessage) != "" {
 				prompt += "\nPedido inicial del humano: " + initialMessage
 			}
@@ -306,6 +317,19 @@ func (m *model) startSession(taskID string, background bool) tea.Cmd {
 		}
 		if m.liveWorkers() >= m.state.MaxWorkers {
 			m.notice = uiText("Límite de workers alcanzado.")
+			return nil
+		}
+		if task.AwaitingExecution {
+			if background {
+				m.notice = localText("The plan is waiting for execution approval.", "El plan espera aprobación para ejecutarse.")
+				return nil
+			}
+			m.queueTask(task.ID, true)
+			for _, saved := range m.state.Tasks {
+				if saved.ID == task.ID && !saved.AwaitingExecution {
+					return m.startSession(taskID, background)
+				}
+			}
 			return nil
 		}
 		m.preparing = true
@@ -592,6 +616,14 @@ func (m *model) execute(line string) tea.Cmd {
 }
 func (m *model) forward(msg tea.Msg) tea.Cmd { _, cmd := m.terminals.Update(msg); return cmd }
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Zoom and navigation can change the header without a terminal resize event.
+	// Keep native PTYs and mouse/cursor coordinates in the same workspace.
+	nativeView := m.view == 2
+	defer func() {
+		if (nativeView || m.view == 2) && (m.terminals.width != m.width || m.terminals.height != m.workspaceHeight()) {
+			m.forward(tea.WindowSizeMsg{Width: m.width, Height: m.workspaceHeight()})
+		}
+	}()
 	switch v := msg.(type) {
 	case projectResult:
 		m.receiveProject(v)
@@ -671,7 +703,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case chatSentResult:
 		m.receiveChatSent(v)
-		return m, m.scheduleWorkerTick()
+		return m, tea.Batch(m.scheduleWorkerTick(), m.scheduleNativeReplyTick())
 	case taskReviewResult:
 		m.review.receive(v)
 		return m, nil
@@ -699,6 +731,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.reconcile()
 		m.pollOrchestrators()
 		return m, tea.Batch(m.dispatchChats(), m.wakeOrchestrators(), m.continueAnsweredWorkers(), m.drainQueue(), m.scheduleWorkerTick())
+	case nativeReplyTick:
+		m.nativeReplyTickPending = false
+		m.readOrchestratorMessages()
+		m.readNativeReplies()
+		m.refreshOrchestrators(false)
+		return m, m.scheduleNativeReplyTick()
 	case githubAuthResult:
 		if v.Generation != m.authGeneration {
 			return m, nil
@@ -1109,10 +1147,15 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.forward(msg)
 		}
-		if key == ":" && !(m.pane == 1 && (m.view == 0 && !m.home || m.view == 1 || m.view == 3)) {
+		if key == ":" && !(m.pane == 1 && (m.view == 0 && !m.home || m.view == 1)) {
 			line := ""
 			m.command = &line
 			return m, nil
+		}
+		if m.view == 3 {
+			if handled, cmd := m.briefKey(key); handled {
+				return m, cmd
+			}
 		}
 		if m.home && m.view == 0 {
 			return m, m.homeKey(v)
@@ -1141,6 +1184,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if (key == "tab" || key == "shift+tab") && m.view != 2 && m.panelMaximized {
+			return m, nil
+		}
 		if key == "tab" {
 			m.pane = (m.pane + 1) % 3
 			return m, nil
@@ -1149,8 +1195,13 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pane = (m.pane + 2) % 3
 			return m, nil
 		}
-		if m.pane == 1 {
+		if m.pane == 1 && m.view != 3 {
+			if handled, cmd := m.chatDecisionKey(key); handled {
+				return m, cmd
+			}
 			switch key {
+			case "shift+enter", "alt+enter":
+				m.chatDraft[m.repo] += "\n"
 			case "ctrl+u":
 				m.chatDraft[m.repo] = ""
 			case "up":
@@ -1305,8 +1356,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.view == 2 {
 			return m, m.forward(msg)
 		}
-		if m.pane == 1 {
-			m.chatDraft[m.repo] += strings.ReplaceAll(v.Content, "\n", " ")
+		if m.pane == 1 && m.view != 3 {
+			m.chatDraft[m.repo] += strings.ReplaceAll(strings.ReplaceAll(v.Content, "\r\n", "\n"), "\r", "\n")
 			m.markConversationDraft()
 			return m, nil
 		}

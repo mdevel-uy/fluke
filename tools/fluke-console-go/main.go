@@ -11,6 +11,9 @@ import (
 	"github.com/charmbracelet/colorprofile"
 )
 
+// Set by release builds with -ldflags "-X main.version=...".
+var version = "dev"
+
 func defaultStateDir() string {
 	if p := os.Getenv("LOCALAPPDATA"); runtime.GOOS == "windows" && p != "" {
 		return filepath.Join(p, "fluke-console")
@@ -28,7 +31,12 @@ func run() error {
 	monochrome := flag.Bool("no-color", false, uiText("Interfaz sin colores"))
 	language := flag.String("lang", "", "Interface language: en or es")
 	setup := flag.Bool("setup", false, "Open first-run setup")
+	showVersion := flag.Bool("version", false, "Print the Fluke Console version")
 	flag.Parse()
+	if *showVersion {
+		fmt.Printf("Fluke Console %s (%s/%s)\n", version, runtime.GOOS, runtime.GOARCH)
+		return nil
+	}
 	initial, root := "", ""
 	if *repo != "" {
 		var err error

@@ -7,7 +7,39 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestHumanChatTakesPriorityOverCoordinationWake(t *testing.T) {
+	store, state, err := openStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.lock.Close()
+	repo := t.TempDir()
+	m := newModel(store, state, repo)
+	w := &terminalWindow{ID: "chat", screen: vt10x.New(vt10x.WithSize(80, 20))}
+	_, _ = w.screen.Write([]byte("\x1b]0;Codex\x07"))
+	m.terminals.Windows = []*terminalWindow{w}
+	m.sessions["fluke:"+repo] = w.ID
+	s := &orchestratorSession{RunID: "run", Provider: "codex", Notify: true, IdleSince: time.Now().Add(-time.Second)}
+	m.orchestration[repo] = s
+	defer func() { m.terminals.Windows = nil; m.sessions = map[string]string{}; m.cleanup() }()
+	for _, delivered := range []bool{false, true} {
+		s.ChatSending = !delivered
+		s.ReplyStarted = time.Time{}
+		if delivered {
+			s.ReplyStarted = time.Now()
+		}
+		if m.wakeOrchestrators() != nil || s.Sending || !s.Notify {
+			t.Fatal("coordination interrupted a queued chat or its reply")
+		}
+	}
+	s.ReplyStarted = time.Time{}
+	if m.wakeOrchestrators() == nil || !s.Sending || s.Notify {
+		t.Fatal("pending coordination was lost after the conversation")
+	}
+}
 
 func TestAgentSummaryStaysBoundedAndUnicodeSafe(t *testing.T) {
 	text := conciseAgentMessage("Entrega lista\n" + strings.Repeat("á", 1500))

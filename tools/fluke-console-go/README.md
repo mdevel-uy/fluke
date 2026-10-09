@@ -38,15 +38,27 @@ Se verificó la compilación sin CGO para Linux amd64 y macOS arm64 el 2026-10-0
   `-Repo ruta`, `-StateDir ruta`, `-Setup` y `-Language en/es`; `open-fluke.ps1 -Here` usa la consola actual.
   El launcher usa un comando codificado para conservar rutas con espacios.
 - F1: todos los proyectos; N crea uno, O abre un repo, flechas eligen,
-  Enter abre tareas y C abre la conversación. F2: objetivo, plan y workers.
-  F3: sesiones. F4: decisiones de producto/alcance. F5: configuración.
+  Enter abre tareas y C abre la conversación. F2 Trabajo: objetivo, plan, chat y workers. Ctrl+F (o F8) maximiza el panel con foco (plan, chat o agentes);
+  repetirlo restaura la distribución. En F3 amplía la terminal seleccionada.
+  Los requisitos de un alcance propuesto aparecen en el plan antes de aprobarlo.
+  Las propuestas y preguntas se revisan y responden en el chat de F2: Ctrl+D
+  abre la decisión completa, flechas desplazan el texto y Esc vuelve al chat.
+  Escribí apruebo o rechazo y Enter para resolver una propuesta. Las preguntas
+  aceptan texto libre. F4 muestra el brief completo y el historial de decisiones; Tab alterna paneles,
+  PgUp/PgDn permite leer y C vuelve al único chat en F2. Escribí ver brief en
+  F2 para abrirlo directamente. Ctrl+D abre una decisión pendiente en F2.
+  Aprobar el alcance prepara el plan; las tareas nuevas esperan ejecución.
+  Escribí ejecutar plan en el chat para autorizar las tareas ya creadas, o
+  encolá/iniciá una tarea individual. Las tareas posteriores requieren su propia
+  autorización. Los requisitos parciales quedan guardados como borrador.
+  F3 Terminales: sesiones de los agentes. F4 Brief: brief completo y decisiones de producto/alcance. F5 Ajustes: configuración.
   Funcionan también desde configuración, GitHub y revisión. Alt+1–Alt+7 son
   alternativas cuando el equipo reserva las teclas de función.
 - F2 → `m`, o Ctrl+X → `m` en F3, abre el editor de mensaje directo al worker.
   Enter guarda la instrucción para el worker y el orquestador antes de enviarla;
   Shift+Enter agrega una línea y Esc cierra sin enviar. Los borradores sobreviven
   al cambio de panel. `:tell ID | mensaje` es la alternativa por comando.
-  Una respuesta guardada se corrige con F4 → Enter o `:amend N respuesta`:
+  Una respuesta guardada se corrige con F4 → Tab al historial → Enter o `:amend N respuesta`:
   conserva el original y agrega su reemplazo con fuente. El worker confirma
   la nueva instrucción antes de entregar; no se inicia solo si estaba detenido.
 - F1 → Tab al panel de atención → flechas/Enter abre el proyecto, tarea o sesión
@@ -88,6 +100,8 @@ Se verificó la compilación sin CGO para Linux amd64 y macOS arm64 el 2026-10-0
   actualiza. En terminales pequeñas, Tab alterna lista y descripción.
 - En Fluke, Proyecto y Decisiones, Tab cambia de panel. La conversación conserva
   un borrador por repositorio; Enter abre la sesión o envía el mensaje al CLI activo.
+  El cuadro crece al escribir y conserva los saltos de línea al pegar texto.
+  Alt+Enter agrega una línea (también Shift+Enter si la terminal lo distingue).
   PgUp/PgDn o flechas permiten leer el historial. Ctrl+Y copia la conversación,
   la sesión, la issue o la revisión actual. Fuera del modo de mover ventanas,
   el mouse pertenece al terminal: seleccioná texto y usá su atajo de copia.

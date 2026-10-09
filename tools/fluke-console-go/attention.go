@@ -80,6 +80,9 @@ func (m *model) nativeAttention(key, provider string) (string, bool) {
 	if detectAgentState(provider, title, screen) != "blocked" {
 		return "", false
 	}
+	if claudeTrustPending(provider, screen) {
+		return localText("Claude is waiting for folder trust confirmation", "Claude espera que confirmes la confianza de la carpeta"), true
+	}
 	if limit := providerLimitMessage(provider, screen); limit != "" {
 		return attentionSummary(limit), true
 	}
@@ -106,7 +109,7 @@ func (m *model) openAttention(index int) bool {
 	m.repo, m.selected, m.pane = item.Repo, 0, 0
 	switch item.Kind {
 	case "decision":
-		m.view = 3
+		m.view, m.pane = 3, 1
 		for i, d := range m.state.Decisions {
 			if i == item.DecisionIndex {
 				break

@@ -9,6 +9,55 @@ import (
 	"time"
 )
 
+func TestWaitingForHumanDoesNotCreateAnotherModelTurn(t *testing.T) {
+	for _, tc := range []struct {
+		name, action     string
+		news, wantNotify bool
+	}{
+		{"question", "ask", false, false},
+		{"draft", "draft_goal", false, false},
+		{"goal", "propose_goal", false, false},
+		{"task", "propose_task", false, false},
+		{"preserve-news", "ask", true, true},
+		{"failed-command", "unsupported", false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store, state, err := openStore(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer store.lock.Close()
+			repo := t.TempDir()
+			m := newModel(store, state, repo)
+			w := &terminalWindow{ID: "chat", screen: vt10x.New(vt10x.WithSize(80, 20))}
+			m.terminals.Windows = []*terminalWindow{w}
+			m.sessions["fluke:"+repo] = w.ID
+			defer func() { m.terminals.Windows = nil; m.sessions = map[string]string{}; m.cleanup() }()
+			s := &orchestratorSession{RunID: "run", Dir: t.TempDir(), Provider: "codex", Notify: tc.news}
+			m.orchestration[repo] = s
+			cmd := orchestratorCommand{Version: 1, RunID: s.RunID, Seq: 1, Action: tc.action, Question: "Which option?", Title: "New scope", Acceptance: "Verified result"}
+			if err := atomicJSON(filepath.Join(s.Dir, "command.json"), cmd); err != nil {
+				t.Fatal(err)
+			}
+			m.pollOrchestrators()
+			if s.Notify != tc.wantNotify {
+				t.Fatal("unexpected automatic model turn", s.Notify)
+			}
+			data, err := os.ReadFile(filepath.Join(s.Dir, "ack.json"))
+			var ack orchestratorAck
+			if err != nil || json.Unmarshal(data, &ack) != nil || ack.Seq != 1 || ack.OK != (tc.action != "unsupported") {
+				t.Fatal("ack not preserved", ack, err)
+			}
+			if tc.action == "ask" && !tc.news {
+				m.execute("answer 1 option A")
+				if !s.Notify {
+					t.Fatal("human answer did not notify the agent")
+				}
+			}
+		})
+	}
+}
+
 func TestOrchestratorCommandsScopeAndApproval(t *testing.T) {
 	store, state, err := openStore(t.TempDir())
 	if err != nil {
@@ -303,7 +352,7 @@ func TestGoalApprovalAndAutonomousDecomposition(t *testing.T) {
 	if _, err = m.applyOrchestratorCommand(repo, task); err != nil {
 		t.Fatal(err)
 	}
-	if len(m.state.Tasks) != 1 || !m.state.Tasks[0].Queued || m.state.Tasks[0].GoalID != goal.ID {
+	if len(m.state.Tasks) != 1 || m.state.Tasks[0].Queued || !m.state.Tasks[0].AwaitingExecution || m.state.Tasks[0].GoalID != goal.ID {
 		t.Fatal("authorized decomposition failed")
 	}
 	if _, err = m.applyOrchestratorCommand(repo, task); err == nil || len(m.state.Tasks) != 1 {

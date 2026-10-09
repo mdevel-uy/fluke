@@ -92,7 +92,10 @@ func (m *model) applyConfig() tea.Cmd {
 		m.notice = uiText("Esperá a que termine la preparación antes de aplicar el modelo.")
 		return nil
 	}
-	if s := m.orchestration[m.repo]; !m.home && s != nil && (s.ChatSending || s.Sending) {
+	// A queued chat can wait indefinitely for a native permission dialog.
+	// Restarting cancels that queue through stop/failPendingChat; only an
+	// actual in-flight write must finish before its terminal is replaced.
+	if s := m.orchestration[m.repo]; !m.home && s != nil && (s.ChatWriting || s.Sending) {
 		m.notice = uiText("Esperá a que termine el envío actual antes de reiniciar Fluke.")
 		return nil
 	}

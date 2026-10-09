@@ -201,6 +201,15 @@ func readWorkerReport(path string, task Task) (workerReport, error) {
 // Herdr distinguishes CLI readiness from task acceptance. Titles are signals,
 // not proof of success. Only inspect current bottom rows for approval dialogs.
 // ponytail: a small conservative fallback; use native hooks for CLIs without OSC titles.
+func claudeTrustPending(provider, screen string) bool {
+	if provider != "claude" {
+		return false
+	}
+	full := strings.ToLower(screen)
+	return strings.Contains(full, "yes, i trust this folder") ||
+		(strings.Contains(full, "trust this folder?") && strings.Contains(full, "trust and continue"))
+}
+
 func detectAgentState(provider, title, screen string) string {
 	if provider != "codex" && provider != "claude" {
 		return "unknown"

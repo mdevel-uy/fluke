@@ -36,10 +36,13 @@ func neonFrame(title, body string, w, h int, ink color.Color, focused bool) stri
 }
 
 var brandLogo = [...]string{
-	" ▄█▀▀  ██   ▄▄ ▄▄ ██ ▄▄  ▄▄▄ ",
-	"▀██▀   ██   ██ ██ ███▀  ██▄██",
-	" ██    ██▄▄ ▀███▀ ██▀█▄ ▀█▄▄▄",
+	"█▀▀ █   █ █ █▄▀ █▀▀",
+	"█▀  █▄▄ █▄█ █ █ ██▄",
+	"",
 }
+
+// The two lobes meet at the bottom, like the whale tail in fluke-icon.svg.
+const brandTail = "▙▟"
 
 // brandHeader is exactly six terminal rows; tabs are supplied by the app so
 // visual navigation and its mouse targets share the same source.
@@ -52,7 +55,7 @@ func (m *model) brandHeader(tabs string) string {
 			pending++
 		}
 	}
-	infoWidth := max(1, w-36)
+	infoWidth := max(1, w-24)
 	info := []string{
 		strong(uiText("TU PROYECTO, EN VIVO"), cyan) + accent("  /  LOCAL", muted),
 		strong(uiText("PROYECTO: ")+filepath.Base(m.repo), cyan) + accent("  ·  "+tailText(m.repo, max(1, infoWidth-ansi.StringWidth(filepath.Base(m.repo))-15)), muted),
@@ -67,7 +70,7 @@ func (m *model) brandHeader(tabs string) string {
 	}
 	lines := []string{accent("┌"+strings.Repeat("─", max(0, w-2))+"┐", cyan)}
 	for i, row := range logo {
-		line := strong(" "+row, cyan) + "  " + ansi.Truncate(info[i], infoWidth, "…")
+		line := strong(" "+fit(row, 19, 1), cyan) + "  " + ansi.Truncate(info[i], infoWidth, "…")
 		lines = append(lines, accent("│", cyan)+fit(line, w-2, 1)+accent("│", cyan))
 	}
 	lines = append(lines, accent("│", cyan)+fit(tabs, w-2, 1)+accent("│", cyan), accent("└"+strings.Repeat("─", max(0, w-2))+"┘", cyan))
@@ -108,23 +111,47 @@ func brandTranscriptLines(messages []ConversationMessage, w int) []string {
 	return lines
 }
 
+// Wrap the draft itself before styling so spaces, explicit newlines and the
+// insertion point survive resizing. Reserve one cell for the end cursor.
+func composerLines(draft string, w int) []string {
+	return strings.Split(ansi.Hardwrap(draft, max(1, w-6), true), "\n")
+}
+
 func brandComposer(draft string, w int, focused bool) string {
+	return brandComposerRows(draft, w, focused, len(composerLines(draft, w)))
+}
+
+func brandComposerRows(draft string, w int, focused bool, rows int) string {
 	if w < 8 {
-		return fit("> "+draft, w, 3)
+		return fit("> "+draft, w, max(1, rows)+2)
 	}
 	ink := muted
 	if focused {
 		ink = cyan
 	}
-	prompt := tailText(strings.ReplaceAll(draft, "\n", " "), w-6)
-	input := strong("> ", ink) + prompt
-	if focused {
-		input += strong("▌", cyan)
+	lines := composerLines(draft, w)
+	start := max(0, len(lines)-max(1, rows))
+	top := "┌" + strings.Repeat("─", w-2) + "┐"
+	if start > 0 {
+		top = "┌…" + strings.Repeat("─", w-3) + "┐"
 	}
-	if draft == "" {
-		input += accent(tailText(uiText("Hablá con Fluke…"), w-6), muted)
+	out := []string{accent(top, ink)}
+	for i := start; i < len(lines); i++ {
+		prefix := "  "
+		if i == 0 {
+			prefix = "> "
+		}
+		input := strong(prefix, ink) + lines[i]
+		if focused && i == len(lines)-1 {
+			input += strong("▌", cyan)
+		}
+		if draft == "" {
+			input += accent(tailText(uiText("Hablá con Fluke…"), w-6), muted)
+		}
+		out = append(out, accent("│", ink)+fit(" "+input, w-2, 1)+accent("│", ink))
 	}
-	return accent("┌"+strings.Repeat("─", w-2)+"┐", ink) + "\n" + accent("│", ink) + fit(" "+input, w-2, 1) + accent("│", ink) + "\n" + accent("└"+strings.Repeat("─", w-2)+"┘", ink)
+	out = append(out, accent("└"+strings.Repeat("─", w-2)+"┘", ink))
+	return strings.Join(out, "\n")
 }
 
 func strong(s string, c color.Color) string {
