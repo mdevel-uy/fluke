@@ -32,13 +32,23 @@ Validated locally:
   the original Fluke state was preserved.
 - `actionlint` passed for `release-console.yml`; `git diff --check` passed.
 
-The complete Go suite timed out at five minutes during concurrent cross-builds,
-before the interaction correction. Its earlier run on the original source with
-the shared test-helper fix passed. A full post-correction run and GitHub's native
-Windows/macOS installation tests remain outstanding. The six-platform release
-build was stopped when the user prioritized uninstalling/testing and the Claude
-failure. Only the Linux x64 local-test package is currently ready.
+The complete post-correction Go suite passed locally (401.687s). GitHub Actions
+run [37861837684](https://github.com/mdevel-uy/fluke/actions/runs/37861837684)
+passed native Go tests, launcher tests, both architecture builds, and actual npm
+package installation on Linux, macOS and Windows. An additional filesystem-alias
+regression test passed; worktree ownership checks accept equivalent filesystem
+objects, including macOS temporary-directory aliases. The configuration test
+uses its own executable and no longer requires Claude to be installed.
 
-No release, npm publication, push or PR was created. This validation establishes
-a short local response and the queued-chat regression, not an entire sustained
-orchestrator/worker workflow or correctness on all target platforms.
+The validated CI artifacts were downloaded, verified against their SHA256
+checksums, and installed again on this Linux machine. They are published at
+[console-v0.1.0-beta.1](https://github.com/mdevel-uy/fluke/releases/tag/console-v0.1.0-beta.1).
+Source changes are in [PR #856](https://github.com/mdevel-uy/fluke/pull/856),
+against the original console branch. The tag workflow triggered by the manual
+release was cancelled to avoid repeating publication of the same version.
+
+The npm registry publication remains pending account authorization. The GitHub
+npm tarball can be installed without an npm account. ARM64 binaries were
+cross-built where the native runner uses x64. This validation establishes a
+short local Claude response and the queued-chat regression, not an entire
+sustained orchestrator/worker workflow on every target platform.

@@ -4,15 +4,29 @@ A terminal workspace for your project: agree on a goal, let Fluke coordinate
 workers, and review their changes before merging. Fluke owns its interface and
 sessions. Herdr and Tuios informed the research; neither is embedded.
 
+## Install the public beta (Windows, Linux or macOS)
+
+Install Node.js 22 or newer, npm and Git, then run:
+
+```sh
+npm install -g --allow-remote=all https://github.com/mdevel-uy/fluke/releases/download/console-v0.1.0-beta.1/mdevel-fluke-0.1.0-beta.1.tgz
+fluke --lang es
+```
+
+The package includes x64 and ARM64 executables. No Go installation or npm
+account is required for this download. Native archives are also available in
+[GitHub Releases](https://github.com/mdevel-uy/fluke/releases/tag/console-v0.1.0-beta.1).
+The package is not yet published to the npm registry. Install and authenticate
+Claude Code or Codex CLI separately to use those agents.
+
 ## Linux / Omarchy
 
 ### Build from GitHub
 
-The repository is private; cloning requires an account with access. Install
-Git and Go 1.26.6 or newer, then run:
+The repository is public. Install Git and Go 1.26.6 or newer, then run:
 
 ```sh
-git clone --branch codex/fluke-console-go https://github.com/mdevel-uy/fluke.git
+git clone --branch console-v0.1.0-beta.1 https://github.com/mdevel-uy/fluke.git
 cd fluke/tools/fluke-console-go
 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o fluke .
 ./fluke --lang es
@@ -39,14 +53,15 @@ run `~/.local/bin/fluke` directly. Git is required; GitHub CLI (`gh`) is optiona
 Use a terminal with Unicode and color support, such as Omarchy's terminal.
 The builds do not require a separate Go installation or CGO at runtime.
 
-Native Linux/macOS execution is still awaiting verification. These binaries
-are development builds, not a release tested on Omarchy.
+The beta passed native Go tests and npm installation checks on Windows, Linux
+and macOS. Interactive agent workflows still require testing on each target
+terminal; Omarchy has not been tested separately.
 
 ## First launch
 
 The initial GitHub Releases/npm distribution pipeline is documented in
-[`distribution/README.md`](distribution/README.md). Installation from npm
-becomes available after the first package publication; it is not yet published.
+[`distribution/README.md`](distribution/README.md). Installation by the GitHub tarball URL is available now; installation by
+registry package name remains pending npm account authorization.
 
 Fluke starts with its animated whale-tail logo and original pixel wordmark.
 Enter starts setup immediately. Ctrl+L switches English and
