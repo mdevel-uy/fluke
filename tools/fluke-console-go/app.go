@@ -44,8 +44,11 @@ type model struct {
 	config                             bool
 	field                              int
 	draft                              [5]string
+	draftAutonomous                    bool
 	pane                               int
 	chatDraft                          map[string]string
+	chatCaret                          map[string]int // Distance from the end; new/replaced drafts start at the end.
+	taskScroll                         int
 	workerMessageID                    string
 	github                             map[string]githubSnapshot
 	githubOpen                         bool
@@ -57,6 +60,7 @@ type model struct {
 	githubFollowupCancel               map[string]context.CancelFunc
 	githubFollowupTickPending          bool
 	configSection                      int
+	themeSelected                      int
 	auth                               githubAuth
 	authCancel                         context.CancelFunc
 	authGeneration, authSelected       int
@@ -74,15 +78,24 @@ type model struct {
 	provider                           providerHealth
 	providerBusy                       bool
 	providerGeneration                 uint64
+	connHealth                         map[string]providerHealth
+	connGeneration                     uint64
+	connSelected                       int
 	modelChoices                       []string
 	dependencyChecks                   map[string]string
 	dependencyHash                     [32]byte
 	dependencyChecked                  time.Time
 	dependencyChecking                 bool
 	setup                              firstRun
+	metricsAt, metricsSaved            time.Time
+	insights                           bool
+	mouseDisabled                      bool
+	floating                           floatingChat
+	switcher                           *quickSwitcher
 }
 
 func newModel(store *Store, state State, repo string) *model {
+	applyTheme(state.Theme)
 	t := newWindowManager(100, 30)
 	m := &model{store: store, state: state, repo: repo, terminals: t, sessions: map[string]string{}, chatDraft: map[string]string{}, pane: 1, width: 100, height: 36, notice: uiText("Contame qué querés lograr. Fluke prepara el plan y coordina el trabajo.")}
 	m.home = repo == ""
@@ -100,6 +113,9 @@ func newModel(store *Store, state State, repo string) *model {
 	m.githubFollowupCancel = map[string]context.CancelFunc{}
 	m.idleSince = map[string]time.Time{}
 	m.orchestration = map[string]*orchestratorSession{}
+	if saved := state.ChatWindow; saved != nil {
+		m.floating = floatingChat{open: true, bounds: rectangle{saved.X, saved.Y, saved.Width, saved.Height}}
+	}
 	return m
 }
 func (m *model) Init() tea.Cmd {
@@ -130,6 +146,7 @@ func (m *model) saveEdit(next State, success string) bool {
 	return true
 }
 func (m *model) openConfig() {
+	m.draftAutonomous = m.state.AutonomousFluke
 	m.configSection = 0
 	m.authConfirm = false
 	m.config = true
@@ -158,6 +175,7 @@ func (m *model) saveConfig() error {
 	}
 	state := m.state
 	state.Orchestrator = &a
+	state.AutonomousFluke = m.draftAutonomous
 	state.MaxWorkers = limit
 	if err = m.store.save(state); err != nil {
 		return err
@@ -252,6 +270,7 @@ func (m *model) startSession(taskID string, background bool) tea.Cmd {
 		}
 		snapshot := m.orchestratorContext(repo)
 		language := m.state.Language
+		autonomous := m.state.AutonomousFluke
 		initialMessage := m.chatDraft[repo]
 		if len(initialMessage) > 16000 {
 			m.notice = uiText("Resumí el pedido o referenciá un archivo del repo; el mensaje es demasiado largo.")
@@ -275,6 +294,9 @@ func (m *model) startSession(taskID string, background bool) tea.Cmd {
 			launchConfig, native, e := prepareNativeConfig(a, previous, repo, runID)
 			if err == nil {
 				err = e
+			}
+			if err == nil && autonomous {
+				launchConfig, err = autonomousFlukeConfig(launchConfig, repo)
 			}
 			argv, e := launchArgv(launchConfig, prompt)
 			if err == nil {
@@ -310,6 +332,9 @@ func (m *model) startSession(taskID string, background bool) tea.Cmd {
 		}
 		m.preparing = true
 		m.preparingWorker = true
+		if task.WorkerConfig != nil {
+			a = *task.WorkerConfig
+		}
 		m.preparingTaskID = task.ID
 		m.preparingQueued = task.Queued
 		m.cancelPreparing = false
@@ -366,7 +391,12 @@ func (m *model) startSession(taskID string, background bool) tea.Cmd {
 func (m *model) focus(key string) {
 	for i, w := range m.terminals.Windows {
 		if w.ID == m.sessions[key] {
+			wasHidden := w.hidden
+			w.hidden = false // Explicit diagnostics/permission access only for Fluke.
 			m.terminals.FocusWindow(i)
+			if wasHidden {
+				m.terminals.layout()
+			}
 			m.terminals.Mode = terminalMode
 			return
 		}
@@ -441,8 +471,8 @@ func (m *model) execute(line string) tea.Cmd {
 		}
 		return m.setDependencies(strings.TrimSpace(id), ids)
 	case "github", "issues":
-		m.githubOpen = true
-		return m.queryGithub(0, "")
+		_, cmd := m.globalKey("f6")
+		return cmd
 	case "issue":
 		index, acceptance, _ := strings.Cut(rest, "|")
 		n, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(index), "#")))
@@ -493,6 +523,8 @@ func (m *model) execute(line string) tea.Cmd {
 		}
 	case "fluke":
 		return m.start("")
+	case "agent":
+		m.assignWorkerConfig(rest)
 	case "start":
 		return m.start(rest)
 	case "fresh":
@@ -569,6 +601,7 @@ func (m *model) execute(line string) tea.Cmd {
 			next := m.state
 			next.Decisions = append([]Decision{}, next.Decisions...)
 			next.Decisions[n-1].Answer = &answer
+			next.Decisions[n-1].AnsweredBy, next.Decisions[n-1].Assistance = "human", false
 			if next.Decisions[n-1].TaskID != "" {
 				next.Decisions[n-1].Continuation = "pending"
 			}
@@ -592,6 +625,9 @@ func (m *model) execute(line string) tea.Cmd {
 }
 func (m *model) forward(msg tea.Msg) tea.Cmd { _, cmd := m.terminals.Update(msg); return cmd }
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if handled, cmd := m.switcherInput(msg); handled {
+		return m, cmd
+	}
 	switch v := msg.(type) {
 	case projectResult:
 		m.receiveProject(v)
@@ -652,6 +688,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.scanHarnesses()
 		}
 		return m, m.checkProvider()
+	case connectionProbeResult:
+		m.receiveConnectionProbe(v)
+		return m, nil
 	case providerHealthResult:
 		if v.generation == m.providerGeneration {
 			m.provider, m.providerBusy = v.health, false
@@ -671,6 +710,15 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case chatSentResult:
 		m.receiveChatSent(v)
+		return m, m.scheduleWorkerTick()
+	case startupTrustResult:
+		if s := m.orchestration[v.repo]; s != nil && s.RunID == v.runID {
+			s.TrustSending = false
+			if v.err != nil && !errors.Is(v.err, errAutomaticDeferred) {
+				s.AutonomousStartup = false
+				m.notice = v.err.Error()
+			}
+		}
 		return m, m.scheduleWorkerTick()
 	case taskReviewResult:
 		m.review.receive(v)
@@ -695,10 +743,11 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.scheduleWorkerTick()
 	case workerTick:
 		m.workerTickPending = false
+		m.observeWorkTime(time.Now())
 		m.observeWorkers(true)
 		m.reconcile()
 		m.pollOrchestrators()
-		return m, tea.Batch(m.dispatchChats(), m.wakeOrchestrators(), m.continueAnsweredWorkers(), m.drainQueue(), m.scheduleWorkerTick())
+		return m, tea.Batch(m.trustAutonomousStarts(), m.dispatchChats(), m.wakeOrchestrators(), m.continueAnsweredWorkers(), m.drainQueue(), m.scheduleWorkerTick())
 	case githubAuthResult:
 		if v.Generation != m.authGeneration {
 			return m, nil
@@ -713,6 +762,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.receiveGithub(v)
 		return m, nil
 	case tea.WindowSizeMsg:
+		m.floating.gesture = nil
+		m.terminals.endMouse()
 		m.width = v.Width
 		m.height = v.Height
 		return m, m.forward(tea.WindowSizeMsg{Width: v.Width, Height: m.workspaceHeight()})
@@ -805,6 +856,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					t.Status, t.Note, t.Queued = "running", "", false
 					t.AgentRun, t.AgentProvider, t.AgentConfig = v.runID, v.provider, &v.config
 					t.AgentSeq, t.AgentState, t.AgentMessage, t.AgentEvidence = 0, "unknown", "", nil
+					t.Metrics.Runs++
 				}
 			}
 		}
@@ -829,7 +881,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.sessions[key] = m.terminals.Windows[len(m.terminals.Windows)-1].ID
 		if v.taskID == "" {
-			m.orchestration[v.repo] = &orchestratorSession{RunID: v.runID, Dir: v.orchestrationDir, Provider: v.provider, Config: v.config}
+			m.terminals.Windows[len(m.terminals.Windows)-1].hidden = true
+			m.terminals.layout()
+			m.orchestration[v.repo] = &orchestratorSession{RunID: v.runID, Dir: v.orchestrationDir, Provider: v.provider, Config: v.config, AutonomousStartup: m.state.AutonomousFluke}
 			if v.submittedDraft != "" {
 				m.receiveChatSent(chatSentResult{Repo: v.repo, RunID: v.runID, Text: v.submittedDraft})
 				messages := m.state.Conversations[v.repo]
@@ -846,15 +900,18 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.taskID == "" {
 			if m.chatDraft[v.repo] == v.submittedDraft {
 				m.chatDraft[v.repo] = ""
+				if m.chatCaret != nil {
+					m.chatCaret[v.repo] = 0
+				}
 			}
 			m.markConversationDraft()
 		}
 		m.refreshProjectContexts()
-		if v.taskID == "" && !v.background {
+		if v.taskID == "" && !v.background && !m.floating.open {
 			m.home = false
 			m.view = 1
 			m.pane = 1
-		} else if !v.background {
+		} else if v.taskID != "" && !v.background {
 			m.view = 2
 		}
 		if !v.background {
@@ -899,6 +956,13 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if handled, cmd := m.globalKey(key); handled {
 			return m, cmd
 		}
+		if m.floatingVisible() && m.floating.focused {
+			if key == "esc" || key == "tab" {
+				m.floating.focused = false
+				return m, nil
+			}
+			return m, m.chatKey(v)
+		}
 		if m.workerMessageID != "" {
 			return m, m.editWorkerMessage(v)
 		}
@@ -913,7 +977,13 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if key == "enter" && m.review.integration != nil && m.integratingTaskID == "" {
 					return m, m.confirmIntegration()
 				}
-				return m, m.review.key(key, m.width, m.workspaceHeight())
+				return m, m.review.key(key, m.reviewDimsW(), m.reviewDimsH())
+			}
+			if (key == "tab" || key == "shift+tab") && m.reviewOverlay() {
+				if key == "tab" {
+					return m, m.reviewMove(1)
+				}
+				return m, m.reviewMove(-1)
 			}
 			if key == "m" && !m.review.loading && m.review.err == nil && m.review.task.Status == "accepted" {
 				return m, m.previewIntegration(m.review.task.ID)
@@ -935,9 +1005,65 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.notice = uiText("Enter acepta la entrega y libera el worker. Los cambios quedan en su rama.")
 				return m, nil
 			}
-			return m, m.review.key(key, m.width, m.workspaceHeight())
+			return m, m.review.key(key, m.reviewDimsW(), m.reviewDimsH())
 		}
 		if m.config {
+			switch key {
+			case "ctrl+o":
+				return m, m.selectConfigSection(0)
+			case "ctrl+g":
+				return m, m.selectConfigSection(1)
+			case "ctrl+t":
+				return m, m.selectConfigSection(2)
+			case "ctrl+i":
+				return m, m.selectConfigSection(3)
+			case "ctrl+right":
+				return m, m.cycleConfigSection(1)
+			case "ctrl+left":
+				return m, m.cycleConfigSection(-1)
+			}
+			if m.configSection == 4 {
+				switch key {
+				case "esc":
+					m.configSection = 0
+				case "up", "shift+tab":
+					m.connSelected = max(0, m.connSelected-1)
+				case "down", "tab":
+					m.connSelected = min(len(m.connectionEntries())-1, m.connSelected+1)
+				case "ctrl+l":
+					if m.shellMode() {
+						return m, m.loginConnection()
+					}
+					return m, m.loginProvider()
+				case "ctrl+r":
+					return m, tea.Batch(m.checkProvider(), m.probeConnections())
+				}
+				return m, nil
+			}
+			if m.configSection == 3 {
+				if key == "esc" {
+					m.configSection = 0
+				}
+				return m, nil
+			}
+			if m.configSection == 2 {
+				switch key {
+				case "down", "right", "tab":
+					m.themeSelected = (m.themeSelected + 1) % len(consoleThemes)
+				case "up", "left", "shift+tab":
+					m.themeSelected = (m.themeSelected + len(consoleThemes) - 1) % len(consoleThemes)
+				case "enter", "ctrl+s":
+					next := m.state
+					next.Theme = consoleThemes[m.themeSelected].ID
+					if m.saveEdit(next, localText("Theme saved: ", "Tema guardado: ")+consoleThemes[m.themeSelected].Name) {
+						m.configSection = 0
+						m.review.lines = nil
+					}
+				case "esc":
+					m.configSection = 0
+				}
+				return m, nil
+			}
 			if key == "ctrl+e" {
 				m.toggleUILanguage()
 				return m, nil
@@ -945,17 +1071,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if key == "ctrl+l" && m.configSection == 0 {
 				return m, m.loginProvider()
 			}
+			if key == "ctrl+a" && m.configSection == 0 {
+				m.draftAutonomous = !m.draftAutonomous
+				return m, nil
+			}
 			if key == "ctrl+r" && m.configSection == 0 {
 				return m, m.checkProvider()
-			}
-			if key == "ctrl+g" {
-				m.configSection = 1
-				return m, m.refreshGithubAuth()
-			}
-			if key == "ctrl+o" {
-				m.configSection = 0
-				m.authConfirm = false
-				return m, nil
 			}
 			if m.configSection == 1 {
 				if m.authConfirm {
@@ -1109,7 +1230,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.forward(msg)
 		}
-		if key == ":" && !(m.pane == 1 && (m.view == 0 && !m.home || m.view == 1 || m.view == 3)) {
+		if key == ":" && !(m.pane == 1 && (m.view == 0 && !m.home || m.view == 1)) {
 			line := ""
 			m.command = &line
 			return m, nil
@@ -1119,6 +1240,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.view == 2 {
 			switch key {
+			case "p":
+				m.terminals.TogglePin()
+			case "z":
+				m.terminals.ToggleZoom()
+			case "shift+tab":
+				m.terminals.cycleFocus(-1)
 			case "m":
 				m.openWorkerMessage("")
 			case "pgup", "pgdown", "home", "end", "shift+pgup", "shift+pgdown", "shift+home", "shift+end":
@@ -1126,9 +1253,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				m.terminals.Mode = terminalMode
 			case "tab":
-				if len(m.terminals.Windows) > 0 {
-					m.terminals.FocusWindow((m.terminals.FocusedWindow + 1) % len(m.terminals.Windows))
-				}
+				m.terminals.cycleFocus(1)
 			case "t":
 				m.terminals.ToggleTiling()
 			}
@@ -1141,6 +1266,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.view == 3 && (key == "tab" || key == "shift+tab") {
+			m.pane = 0
+			return m, nil
+		}
 		if key == "tab" {
 			m.pane = (m.pane + 1) % 3
 			return m, nil
@@ -1149,45 +1278,22 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pane = (m.pane + 2) % 3
 			return m, nil
 		}
-		if m.pane == 1 {
-			switch key {
-			case "ctrl+u":
-				m.chatDraft[m.repo] = ""
-			case "up":
-				m.chatScroll++
-				return m, nil
-			case "down":
-				m.chatScroll = max(0, m.chatScroll-1)
-				return m, nil
-			case "pgup":
-				m.chatScroll += max(1, m.workspaceHeight()/2)
-				return m, nil
-			case "pgdown":
-				m.chatScroll = max(0, m.chatScroll-max(1, m.workspaceHeight()/2))
-				return m, nil
-			case "enter":
-				m.chatScroll = 0
-				text := m.chatDraft[m.repo]
-				if !m.sessionAlive("fluke:" + m.repo) {
-					return m, m.start("")
-				}
-				if strings.TrimSpace(text) != "" {
-					return m, m.sendChat(text)
-				}
-			case "backspace":
-				r := []rune(m.chatDraft[m.repo])
-				if len(r) > 0 {
-					m.chatDraft[m.repo] = string(r[:len(r)-1])
-				}
-			default:
-				if v.Text != "" {
-					m.chatDraft[m.repo] += v.Text
-				}
-			}
-			m.markConversationDraft()
-			return m, nil
+		if m.pane == 1 && m.view != 3 {
+			return m, m.chatKey(v)
 		}
-		if m.view == 1 && m.pane == 0 {
+		if m.view == 1 && (m.pane == 0 || m.pane == 2) {
+			if key == "pgup" || key == "pgdown" {
+				step := max(1, m.workspaceHeight()/2)
+				if key == "pgup" {
+					step = -step
+				}
+				m.taskScroll = max(0, m.taskScroll+step)
+				return m, nil
+			}
+			if key == "i" {
+				m.insights = !m.insights
+				return m, nil
+			}
 			if key == "ctrl+r" {
 				tasks := m.projectTasks()
 				if len(tasks) > 0 {
@@ -1205,6 +1311,17 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(tasks) > 0 {
 				task := tasks[m.selected%len(tasks)]
 				switch key {
+				case "a":
+					provider, model := "codex", ""
+					if a := m.state.Orchestrator; a != nil {
+						provider, model = a.Provider, a.Model
+					}
+					if a := task.WorkerConfig; a != nil {
+						provider, model = a.Provider, a.Model
+					}
+					line := fmt.Sprintf("agent %s | %s | %s", task.ID, provider, model)
+					m.command = &line
+					return m, nil
 				case "m":
 					m.openWorkerMessage(task.ID)
 					return m, nil
@@ -1237,8 +1354,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch key {
 		case "down", "j":
 			m.selected++
+			m.taskScroll = 0
 		case "up", "k":
 			m.selected = max(0, m.selected-1)
+			m.taskScroll = 0
 		case "enter":
 			if m.view == 0 {
 				if len(m.state.Projects) > 0 {
@@ -1256,6 +1375,11 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case tea.PasteMsg:
+		if m.floatingVisible() && m.floating.focused {
+			m.insertChat(v.Content)
+			m.markConversationDraft()
+			return m, nil
+		}
 		if m.projects.open {
 			m.pasteProjectField(v.Content)
 			return m, nil
@@ -1272,7 +1396,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.review.open && m.review.publicationEditing != 0 {
 			m.review.editPublication(v.Content)
-			m.review.followPublicationCaret(m.width, m.workspaceHeight())
+			m.review.followPublicationCaret(m.reviewDimsW(), m.reviewDimsH())
 			return m, nil
 		}
 		if m.review.open || m.quitting {
@@ -1289,10 +1413,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			*m.command += strings.ReplaceAll(v.Content, "\n", " ")
 			return m, nil
 		}
-		if m.config && m.field > 0 {
-			m.draft[m.field] += strings.ReplaceAll(v.Content, "\n", "")
-			if m.field == 1 {
-				m.invalidateProvider()
+		if m.config {
+			if m.configSection == 0 && m.field > 0 {
+				m.draft[m.field] += strings.ReplaceAll(v.Content, "\n", "")
+				if m.field == 1 {
+					m.invalidateProvider()
+				}
 			}
 			return m, nil
 		}
@@ -1305,31 +1431,85 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.view == 2 {
 			return m, m.forward(msg)
 		}
-		if m.pane == 1 {
-			m.chatDraft[m.repo] += strings.ReplaceAll(v.Content, "\n", " ")
+		if m.pane == 1 && m.view != 3 {
+			m.insertChat(v.Content)
 			m.markConversationDraft()
 			return m, nil
 		}
 		return m, nil
 	case tea.MouseClickMsg:
+		if handled, cmd := m.clickNavigation(v.Mouse()); handled {
+			return m, cmd
+		}
+		if handled, cmd := m.clickShell(v.Mouse()); handled {
+			return m, cmd
+		}
+		if handled, cmd := m.clickChatAction(v.Mouse()); handled {
+			return m, cmd
+		}
+		if handled, cmd := m.clickTaskAction(v.Mouse()); handled {
+			return m, cmd
+		}
+		if m.floatingMouse(v.Mouse(), "click") {
+			return m, nil
+		}
+		if !m.mouseDisabled && v.Button == tea.MouseLeft && !m.setup.open && !m.quitting && !m.projects.open {
+			if handled, cmd := m.configTabClick(v.Mouse()); handled {
+				return m, cmd
+			}
+		}
+		if m.clickPanel(v.Mouse()) {
+			return m, nil
+		}
+		if m.clickWorkspace(v.Mouse()) {
+			return m, nil
+		}
 		if !m.allowMouse(v.Y) {
 			return m, nil
 		}
 		v.Y -= m.headerRows()
 		return m, m.forward(v)
 	case tea.MouseReleaseMsg:
+		if m.floatingMouse(v.Mouse(), "release") {
+			return m, nil
+		}
 		if !m.allowMouse(v.Y) {
 			return m, nil
 		}
 		v.Y -= m.headerRows()
 		return m, m.forward(v)
 	case tea.MouseMotionMsg:
+		if m.floatingMouse(v.Mouse(), "motion") {
+			return m, nil
+		}
 		if !m.allowMouse(v.Y) {
 			return m, nil
 		}
 		v.Y -= m.headerRows()
 		return m, m.forward(v)
 	case tea.MouseWheelMsg:
+		if m.floatingMouse(v.Mouse(), "wheel") {
+			return m, nil
+		}
+		if !m.mouseDisabled && inRectangle(v.X, v.Y-m.headerRows(), m.chatRectangle()) {
+			if v.Button == tea.MouseWheelUp {
+				m.scrollChat(3)
+			} else {
+				m.scrollChat(-3)
+			}
+			return m, nil
+		}
+		if !m.mouseDisabled && m.view == 1 && !m.config && !m.review.open && !m.githubOpen && m.command == nil && !m.projects.open {
+			_, detail := m.projectPanels()
+			if inRectangle(v.X, v.Y-m.headerRows(), detail) {
+				if v.Button == tea.MouseWheelUp {
+					m.taskScroll = max(0, m.taskScroll-3)
+				} else {
+					m.taskScroll += 3
+				}
+				return m, nil
+			}
+		}
 		if !m.allowMouse(v.Y) {
 			return m, nil
 		}
@@ -1341,7 +1521,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 func (m *model) allowMouse(y int) bool {
-	return m.view == 2 && !m.config && !m.githubOpen && !m.review.open && m.command == nil && m.workerMessageID == "" && !m.quitting && ((y >= m.headerRows() && y < m.height-m.footerRows()) || m.terminals.gesture != nil)
+	return !m.mouseDisabled && !m.setup.open && !m.projects.open && m.view == 2 && !m.config && !m.githubOpen && !m.review.open && m.command == nil && m.workerMessageID == "" && !m.quitting && ((y >= m.headerRows() && y < m.height-m.footerRows()) || m.terminals.gesture != nil)
 }
 func (m *model) projectTasks() []Task {
 	var tasks []Task

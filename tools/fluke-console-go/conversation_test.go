@@ -50,6 +50,19 @@ func TestQueuedChatFreesComposerWithoutErasingNextDraft(t *testing.T) {
 	}
 }
 
+func TestReplyBeforeDeliveryAckDoesNotRestartWaiting(t *testing.T) {
+	m := projectTestModel(t)
+	repo := t.TempDir()
+	m.repo = repo
+	s := &orchestratorSession{RunID: "run", ReportSeq: 2}
+	m.orchestration[repo] = s
+	m.state.Conversations = map[string][]ConversationMessage{repo: {{Role: "human", RunID: "run", Seq: 3, Delivery: "pending"}, {Role: "fluke", RunID: "run", Seq: 2, Text: "Done"}}}
+	m.receiveChatSent(chatSentResult{Repo: repo, RunID: "run", Seq: 3, ReportSeq: 1})
+	if !s.ReplyStarted.IsZero() {
+		t.Fatal("already received reply became pending again")
+	}
+}
+
 func TestConversationReportsAndQueuedInput(t *testing.T) {
 	store, state, err := openStore(t.TempDir())
 	if err != nil {
@@ -111,7 +124,7 @@ func TestConversationReportsAndQueuedInput(t *testing.T) {
 		t.Fatal("race drops pending human chat")
 	}
 	text := conversationTranscript(m.state.Conversations[repo], 50, 20)
-	if !strings.Contains(text, "FLUKE") || !strings.Contains(text, "VOS") || strings.Contains(text, "[31m") {
+	if !strings.Contains(text, "Fluke") || !strings.Contains(text, "Vos") || strings.Contains(text, "[31m") {
 		t.Fatal("conversation not distinct or contains terminal noise")
 	}
 	if err = store.save(m.state); err != nil {

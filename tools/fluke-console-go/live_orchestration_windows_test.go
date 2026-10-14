@@ -29,8 +29,14 @@ func TestLiveOrchestratorAndWorker(t *testing.T) {
 	a := AgentConfig{Provider: "codex", Executable: "codex.cmd", Arguments: []string{"--no-daemon", "--no-alt-screen", "--sandbox", "workspace-write", "--ask-for-approval", "never"}}
 	state.Orchestrator = &a
 	_ = state.setGoal(repo, "Entrega mínima autorizada", "Crear result.txt con exactamente FLUKE_ORCHESTRATED seguido de un salto de línea. Verificar su contenido. Sin commits, merge ni dependencias nuevas.")
+	if os.Getenv("FLUKE_LIVE_HELP") == "1" {
+		_ = state.setGoal(repo, "Validar ayuda técnica del orquestador", "Antes de implementar, el worker debe reportar blocked con help_requested=true y question pidiendo a Fluke confirmar cómo verificar el archivo. Debe terminar el turno y esperar su respuesta técnica. Luego crear result.txt con exactamente FLUKE_ORCHESTRATED seguido de un salto de línea y verificarlo leyendo el archivo. Sin commits, merge ni dependencias nuevas.")
+	}
 	m := newModel(store, state, repo)
 	m.chatDraft[repo] = "Organizá el objetivo acordado: creá una única tarea dentro de su alcance usando create_task y el goal_id actual. Su worker crea result.txt y verifica su contenido. Terminá el turno y esperá el aviso de Fluke. Cuando el contexto muestre awaiting_review, pedí revisión humana usando ask con question=Review delivery FLUKE_ORCHESTRATED. No implementes la tarea vos ni hagas merge."
+	if os.Getenv("FLUKE_LIVE_HELP") == "1" {
+		m.chatDraft[repo] += " Es una prueba explícita del circuito de ayuda: conservá el requisito de pedir asistencia técnica antes de implementar. Cuando llegue assistance=true respondé con answer_worker indicando leer result.txt y comparar su contenido exacto; no escales esa pregunta técnica al humano."
+	}
 	defer m.cleanup()
 	m.width, m.height = 140, 40
 	m.terminals.width, m.terminals.height = 140, 30
@@ -61,9 +67,12 @@ func TestLiveOrchestratorAndWorker(t *testing.T) {
 			m.Update(msg)
 		}
 	}
-	trusted, hooks := map[string]bool{}, map[string]bool{}
+	trustSeen, trustAttempts, hooks := map[string]time.Time{}, map[string]int{}, map[string]bool{}
 	nextPoll, nextLog := time.Time{}, time.Time{}
 	deadline := time.Now().Add(180 * time.Second)
+	if os.Getenv("FLUKE_LIVE_HELP") == "1" {
+		deadline = time.Now().Add(300 * time.Second)
+	}
 	for time.Now().Before(deadline) {
 		for _, w := range m.terminals.Windows {
 			text := w.screen.String()
@@ -71,9 +80,16 @@ func TestLiveOrchestratorAndWorker(t *testing.T) {
 				_, _ = w.writer.Write([]byte(terminalEscape()))
 				hooks[w.ID] = true
 			}
-			if !trusted[w.ID] && (strings.Contains(text, "Yes, I trust this folder") || strings.Contains(text, "Yes, trust") || (strings.Contains(text, "Trust this folder?") && strings.Contains(text, "1. Trust and continue"))) {
-				_ = w.sendPrompt("")
-				trusted[w.ID] = true
+			if strings.Contains(text, "Yes, I trust this folder") || strings.Contains(text, "Yes, trust") || (strings.Contains(text, "Trust this folder?") && strings.Contains(text, "1. Trust and continue")) {
+				if trustSeen[w.ID].IsZero() {
+					trustSeen[w.ID] = time.Now()
+				}
+				// The first rendered text can precede Codex's input listener. Only
+				// this test's freshly created repository may retry its trust prompt.
+				if time.Since(trustSeen[w.ID]) >= time.Second && trustAttempts[w.ID] < 3 {
+					_ = w.sendPrompt("")
+					trustSeen[w.ID], trustAttempts[w.ID] = time.Now(), trustAttempts[w.ID]+1
+				}
 			}
 		}
 		if time.Now().After(nextPoll) {
@@ -81,6 +97,7 @@ func TestLiveOrchestratorAndWorker(t *testing.T) {
 			m.reconcile()
 			m.pollOrchestrators()
 			runCmd(m.drainQueue())
+			runCmd(m.continueAnsweredWorkers())
 			nextPoll = time.Now().Add(time.Second)
 		}
 		if !readyObserved && len(m.state.Tasks) > 0 && m.state.Tasks[0].Status == "awaiting_review" {
@@ -118,6 +135,17 @@ func TestLiveOrchestratorAndWorker(t *testing.T) {
 			}
 			if _, err = os.Stat(filepath.Join(repo, "result.txt")); !os.IsNotExist(err) {
 				t.Fatal("orchestrator modified main checkout")
+			}
+			if os.Getenv("FLUKE_LIVE_HELP") == "1" {
+				resolved := false
+				for _, d := range m.state.Decisions {
+					if d.AnsweredBy == "fluke" && d.Continuation == "sent" {
+						resolved = true
+					}
+				}
+				if !resolved {
+					t.Fatal("worker completed without exercising Fluke technical assistance")
+				}
 			}
 			if os.Getenv("FLUKE_CONSOLE_CAPTURE_DIR") != "" {
 				captureLiveModel(t, m)

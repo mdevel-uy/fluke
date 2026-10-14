@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/charmbracelet/x/ansi"
@@ -100,6 +101,7 @@ func vtArguments(sequence string) (byte, []int) {
 func (w *terminalWindow) consumeOutput(data []byte) {
 	w.outputMu.Lock()
 	defer w.outputMu.Unlock()
+	defer func() { w.lastOutput.Store(time.Now().UnixNano()) }()
 	h := &w.history
 	if h.rows == 0 {
 		w.screen.Lock()

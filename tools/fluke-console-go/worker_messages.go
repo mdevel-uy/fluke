@@ -138,6 +138,7 @@ func (m *model) amendDecision(rest string) tea.Cmd {
 		}
 	}
 	d.Supersedes, d.Continuation = n, ""
+	d.AnsweredBy, d.Assistance = "human", false
 	d.Number = len(m.state.Decisions) + 1
 	d.Answer = &text
 	if d.TaskID != "" {

@@ -4,6 +4,14 @@ A terminal workspace for your project: agree on a goal, let Fluke coordinate
 workers, and review their changes before merging. Fluke owns its interface and
 sessions. Herdr and Tuios informed the research; neither is embedded.
 
+Gentle Shell also informs the current settings and navigation. **Alt+K** opens
+a searchable list of views and settings; **Ctrl+P** finds projects/workers and
+**Ctrl+K** opens the command editor. In **F5**, click Agent, Connection, GitHub,
+Theme or Text, or use **Ctrl+Left/Right**. Connection separates CLI availability
+from account authentication: **Ctrl+L** opens native sign-in, **Ctrl+R** checks
+status. Theme includes the optional Gentle palette; Text explains host terminal
+font settings. These source changes still need external build and validation.
+
 ## Linux / Omarchy
 
 ### Build from GitHub
@@ -82,7 +90,7 @@ the goal before workers start. Existing folders are preserved. No repository
 is published to GitHub during creation.
 
 Press **F1 → O** to open an existing repository. In F1, arrows select a project;
-Enter opens its tasks and **C** opens its conversation. Other sessions keep
+Enter or **C** opens its conversation and project workspace. Other sessions keep
 running, and workers share one global concurrency limit.
 
 ## Everyday controls
@@ -98,15 +106,60 @@ running, and workers share one global concurrency limit.
 - **F7:** inspect changes, accept a delivery, preview local integration or
   prepare/edit a draft pull request. Confirm before writing to Git/GitHub.
 - **Alt+1–Alt+7:** alternatives when the desktop reserves function keys.
+- Click the top tabs to navigate. GitHub connection settings stay under F5;
+  project issues use F6.
+- **[Chat] / Ctrl+F:** open Fluke's floating chat, refocus it if unfocused, or
+  close it if already focused. It stays above other sections.
+  Drag its title, resize its edges, click inside to type, or press Esc/Tab to
+  return focus to the background. Its open state and bounds survive reopening;
+  the title and draft follow the current project.
+- **Ctrl+B:** switch between mouse controls and native terminal text selection.
+  Mouse controls remain available while typing in a worker terminal.
+- In F3, **[p] / [*]** pins/unpins a terminal above the others for this session;
+  **[+] / [-]** maximizes/restores. Keyboard `p` and `z` work in window mode.
 - **Ctrl+K:** command line; **Ctrl+X:** manage terminal windows;
   **Ctrl+Y:** copy the visible conversation, session or review.
 
 In chat, `:` is ordinary text; use Ctrl+K for commands. Ctrl+U clears the draft.
+F2 opens the conversation, with clickable Chat, Plan, Workers and Balance views.
+Use arrows, Home/End and Delete to edit a brief. Enter sends; Alt+Enter,
+Shift+Enter or Ctrl+J insert a newline. Multiline paste keeps its paragraphs.
+Send, Connection and Pin actions are visible in both docked and floating chat.
+Fluke's model runs in the background; F3 shows worker terminals. Connection
+opens the internal provider only for permissions or troubleshooting. Leaving
+that view hides it again when you navigate back to F3.
+Task rows and actions are clickable; PgUp/PgDn or the wheel scroll long task
+details. Review begins with the acceptance criterion and reported evidence.
 F7 follows the selected task, the task linked to a decision in F4, or the
 focused worker in F3. A decision without a task opens an empty review.
-On smaller terminals, Tab in F4 switches between the decision and project chat.
+To explore without creating projects or connecting a provider, run
+`fluke-console.exe --demo` or double-click `open-demo.cmd`. The demo contains
+three fictional projects and eight workers. F1 selects projects, F2 shows chat,
+plan and balance, F3 lets you move/resize worker windows, F4 shows a decision,
+and F5 previews themes. It is a read-only snapshot: messages, execution and
+repository actions are disabled. It does not load or save your regular state,
+create repositories, or call models; all usage figures are illustrative.
+
+F4 is dedicated to decisions and their context, without a duplicate chat. Use
+↑/↓ to choose a decision and Enter to respond; F2 opens the project chat.
+Ctrl+P opens a global switcher for projects and tasks (also available in the
+demo). Type words from the project, task, provider or status, then choose with
+↑/↓ and Enter or click a result. Projects open Fluke's chat; a live worker opens
+in window mode, while a finished/offline worker opens its task in the plan.
+Switching never starts a task. Esc restores the previous editor and its draft;
+Ctrl+U clears the search. Ctrl+P is reserved by Fluke, including in a terminal.
 Messages whose delivery cannot be confirmed remain marked as uncertain:
-check the native session before resending them.
+open Connection before resending them. A successful pipe write alone no longer
+marks a follow-up delivered: Fluke waits for paste processing and provider activity.
+
+To start Fluke without provider approval prompts, run `open-fluke.ps1 -Autonomous`
+or the executable with `--autonomous`. This saves the choice. F5 → Ctrl+A toggles
+the setting; Enter saves it and Ctrl+Enter applies it to the current Fluke session.
+This grants unrestricted file/command access to Fluke's Codex or Claude session.
+Worker defaults stay separate. Fluke confirms only the initial trust dialog for
+the exact project you opened; it does not press Enter on arbitrary permission dialogs.
+Provider login, usage limits, and administrator restrictions still apply. Custom
+CLIs require their own integration; they are not supported as Fluke's orchestrator.
 
 In F2 select a task and press **m**, or use **Ctrl+X → m** on its F3 session,
 to write directly to that worker. The message editor saves your instruction

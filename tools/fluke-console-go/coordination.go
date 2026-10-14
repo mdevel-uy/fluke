@@ -90,6 +90,9 @@ func (m *model) continueAnsweredWorkers() tea.Cmd {
 			commands = append(commands, func() tea.Msg {
 				path, _ := json.Marshal(answerPath)
 				prompt := "Fluke entregó una respuesta humana. Leé EXACTAMENTE " + string(path) + " (ruta JSON; decodificala). Este archivo conserva este mensaje y tiene prioridad sobre el mailbox genérico. Validá run_id y continuá dentro del alcance acordado; no hagas merge."
+				if d.AnsweredBy == "fluke" {
+					prompt = "Fluke respondió tu pedido de ayuda técnica. Leé EXACTAMENTE " + string(path) + " (ruta JSON; decodificala), comprobá run_id y seq y aplicá answer dentro del alcance aprobado. No es una autorización humana ni un permiso de herramientas. Si no resuelve el bloqueo, reportá la nueva evidencia sin repetir intentos idénticos."
+				}
 				if d.ReviewFeedback {
 					prompt += " Es una revisión humana: corregí answer e incluí review_feedback_seq=" + fmt.Sprint(d.Seq) + " en tu próximo ready."
 				}

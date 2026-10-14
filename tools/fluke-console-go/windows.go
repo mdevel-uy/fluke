@@ -38,8 +38,12 @@ type terminalWindow struct {
 	writer              *ptyWriter
 	screen              vt10x.Terminal
 	outputMu            sync.Mutex
+	promptMu            sync.Mutex
+	lastOutput          atomic.Int64
 	history             terminalScrollback
 	x, y, w, h          int
+	pinned              bool
+	hidden              bool
 	exited              atomic.Bool
 	closed              bool
 	userInputPending    atomic.Bool
@@ -110,6 +114,8 @@ type windowManager struct {
 	closed              bool
 	nextID              int
 	lastError           error
+	zoomed              bool
+	restoreBounds       map[string]rectangle
 }
 
 func newWindowManager(w, h int) *windowManager {
@@ -183,9 +189,66 @@ func (m *windowManager) AddWindowIn(dir, name string, argv ...string) {
 	}()
 }
 func (m *windowManager) FocusWindow(i int) {
-	if i >= 0 && i < len(m.Windows) {
+	if i >= 0 && i < len(m.Windows) && !m.Windows[i].hidden {
 		m.FocusedWindow = i
+		if m.singleWindow() {
+			m.layout()
+		}
 	}
+}
+
+func (m *windowManager) visibleWindows() []int {
+	var visible []int
+	for i, w := range m.Windows {
+		if !w.hidden {
+			visible = append(visible, i)
+		}
+	}
+	return visible
+}
+
+func (m *windowManager) cycleFocus(step int) {
+	visible := m.visibleWindows()
+	for n, i := range visible {
+		if i == m.FocusedWindow {
+			m.FocusWindow(visible[(n+step+len(visible))%len(visible)])
+			return
+		}
+	}
+	if len(visible) > 0 {
+		m.FocusWindow(visible[0])
+	}
+}
+
+func (m *windowManager) TogglePin() {
+	if len(m.visibleWindows()) == 0 || m.Windows[m.FocusedWindow].hidden {
+		return
+	}
+	if m.zoomed {
+		m.ToggleZoom()
+	}
+	w := m.Windows[m.FocusedWindow]
+	w.pinned = !w.pinned
+	if w.pinned {
+		m.tiled = false
+	}
+	m.layout()
+}
+
+// Painting and hit testing must agree, including unfocused pinned windows.
+func (m *windowManager) windowOrder() []int {
+	order := make([]int, 0, len(m.Windows))
+	for _, pinned := range []bool{false, true} {
+		for i, w := range m.Windows {
+			if !w.hidden && w.pinned == pinned && i != m.FocusedWindow && !m.singleWindow() {
+				order = append(order, i)
+			}
+		}
+		if i := m.FocusedWindow; i >= 0 && i < len(m.Windows) && !m.Windows[i].hidden && m.Windows[i].pinned == pinned {
+			order = append(order, i)
+		}
+	}
+	return order
 }
 func (m *windowManager) DeleteWindow(i int) bool {
 	if i < 0 || i >= len(m.Windows) {
@@ -211,10 +274,57 @@ func (m *windowManager) Cleanup() {
 	}
 	m.Windows = nil
 }
-func (m *windowManager) ToggleTiling() { m.tiled = !m.tiled; m.layout() }
+func (m *windowManager) ToggleTiling() {
+	if m.zoomed {
+		m.ToggleZoom()
+	}
+	m.tiled = !m.tiled
+	m.layout()
+}
+
+func (m *windowManager) singleWindow() bool {
+	n := len(m.visibleWindows())
+	cols := 1
+	if n > 1 && m.width >= 64 {
+		cols = 2
+	}
+	return m.zoomed || m.tiled && (m.width < 64 || m.height/max(1, (n+cols-1)/cols) < 8)
+}
+
+func (m *windowManager) ToggleZoom() {
+	if len(m.visibleWindows()) == 0 || m.Windows[m.FocusedWindow].hidden {
+		return
+	}
+	if m.zoomed {
+		for _, w := range m.Windows {
+			if r, ok := m.restoreBounds[w.ID]; ok {
+				w.x, w.y, w.w, w.h = r.x, r.y, r.w, r.h
+			}
+		}
+		m.restoreBounds = nil
+	} else {
+		m.restoreBounds = map[string]rectangle{}
+		for _, w := range m.Windows {
+			m.restoreBounds[w.ID] = rectangle{w.x, w.y, w.w, w.h}
+		}
+	}
+	m.zoomed = !m.zoomed
+	m.gesture = nil
+	m.layout()
+}
 func (m *windowManager) layout() {
-	n := len(m.Windows)
+	visible := m.visibleWindows()
+	n := len(visible)
 	if n == 0 {
+		return
+	}
+	if m.FocusedWindow < 0 || m.FocusedWindow >= len(m.Windows) || m.Windows[m.FocusedWindow].hidden {
+		m.FocusedWindow = visible[0]
+	}
+	if m.singleWindow() {
+		w := m.Windows[m.FocusedWindow]
+		w.x, w.y, w.w, w.h = 0, 0, m.width, m.height
+		_ = w.resize(max(1, w.w-2), max(1, w.h-3))
 		return
 	}
 	if m.tiled {
@@ -223,7 +333,8 @@ func (m *windowManager) layout() {
 			cols = 2
 		}
 		rows := (n + cols - 1) / cols
-		for i, w := range m.Windows {
+		for i, index := range visible {
+			w := m.Windows[index]
 			x := i % cols * m.width / cols
 			y := i / cols * m.height / rows
 			right := (i%cols + 1) * m.width / cols
@@ -236,6 +347,9 @@ func (m *windowManager) layout() {
 		}
 	} else {
 		for _, w := range m.Windows {
+			if w.hidden {
+				continue
+			}
 			m.clamp(w)
 			_ = w.resize(w.w-2, w.h-3)
 		}
@@ -248,13 +362,9 @@ func (m *windowManager) clamp(w *terminalWindow) {
 	w.y = max(0, min(w.y, m.height-w.h))
 }
 func (m *windowManager) hit(x, y int) int {
-	if i := m.FocusedWindow; i >= 0 && i < len(m.Windows) {
-		w := m.Windows[i]
-		if x >= w.x && x < w.x+w.w && y >= w.y && y < w.y+w.h {
-			return i
-		}
-	}
-	for i := len(m.Windows) - 1; i >= 0; i-- {
+	order := m.windowOrder()
+	for n := len(order) - 1; n >= 0; n-- {
+		i := order[n]
 		w := m.Windows[i]
 		if x >= w.x && x < w.x+w.w && y >= w.y && y < w.y+w.h {
 			return i
@@ -272,6 +382,14 @@ func (m *windowManager) beginMouse(mouse tea.Mouse) {
 	}
 	m.FocusWindow(i)
 	w := m.Windows[i]
+	if mouse.Y == w.y+1 && mouse.X >= w.x+w.w-5 && mouse.X <= w.x+w.w-3 && w.w >= 20 {
+		m.ToggleZoom()
+		return
+	}
+	if mouse.Y == w.y+1 && mouse.X >= w.x+w.w-9 && mouse.X <= w.x+w.w-7 && w.w >= 20 {
+		m.TogglePin()
+		return
+	}
 	edge := 0
 	if mouse.X == w.x {
 		edge |= edgeLeft
@@ -287,6 +405,9 @@ func (m *windowManager) beginMouse(mouse tea.Mouse) {
 	}
 	if edge == 0 && mouse.Y > w.y+1 {
 		m.Mode = terminalMode
+		return
+	}
+	if m.singleWindow() {
 		return
 	}
 	m.Mode = windowMode
@@ -307,32 +428,8 @@ func (m *windowManager) moveMouse(mouse tea.Mouse) {
 	if w == nil {
 		return
 	}
-	dx, dy := mouse.X-g.startX, mouse.Y-g.startY
-	r := g.initial
-	w.x = r.x
-	w.y = r.y
-	w.w = r.w
-	w.h = r.h
-	if g.edge == 0 {
-		w.x += dx
-		w.y += dy
-	} else {
-		if g.edge&edgeLeft != 0 {
-			w.x += dx
-			w.w -= dx
-		}
-		if g.edge&edgeRight != 0 {
-			w.w += dx
-		}
-		if g.edge&edgeBottom != 0 {
-			w.h += dy
-		}
-		if g.edge&edgeTop != 0 {
-			w.y += dy
-			w.h -= dy
-		}
-	}
-	m.clamp(w)
+	r := dragRectangle(g.initial, mouse.X-g.startX, mouse.Y-g.startY, g.edge, m.width, m.height, 20, 6)
+	w.x, w.y, w.w, w.h = r.x, r.y, r.w, r.h
 	// Commit the PTY size on release, rather than flooding the child during a drag.
 }
 func (m *windowManager) endMouse() {
@@ -359,11 +456,23 @@ func (m *windowManager) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseReleaseMsg:
 		m.moveMouse(v.Mouse())
 		m.endMouse()
+	case tea.MouseWheelMsg:
+		if i := m.hit(v.X, v.Y); i >= 0 {
+			w := m.Windows[i]
+			w.outputMu.Lock()
+			if v.Button == tea.MouseWheelUp {
+				w.history.offset = min(w.history.count, w.history.offset+3)
+			}
+			if v.Button == tea.MouseWheelDown {
+				w.history.offset = max(0, w.history.offset-3)
+			}
+			w.outputMu.Unlock()
+		}
 	case tea.KeyPressMsg:
-		if len(m.Windows) > 0 && m.Windows[m.FocusedWindow].scrollKey(v.String(), m.Mode) {
+		if len(m.Windows) > 0 && !m.Windows[m.FocusedWindow].hidden && m.Windows[m.FocusedWindow].scrollKey(v.String(), m.Mode) {
 			return nil, nil
 		}
-		if m.Mode == terminalMode && len(m.Windows) > 0 {
+		if m.Mode == terminalMode && len(m.Windows) > 0 && !m.Windows[m.FocusedWindow].hidden {
 			w := m.Windows[m.FocusedWindow]
 			w.liveOutput()
 			w.screen.Lock()
@@ -380,7 +489,7 @@ func (m *windowManager) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			w.writer.Unlock()
 		}
 	case tea.PasteMsg:
-		if m.Mode == terminalMode && len(m.Windows) > 0 {
+		if m.Mode == terminalMode && len(m.Windows) > 0 && !m.Windows[m.FocusedWindow].hidden {
 			w := m.Windows[m.FocusedWindow]
 			w.liveOutput()
 			w.writer.Lock()
@@ -417,9 +526,9 @@ func keyBytes(k tea.KeyPressMsg, appCursor bool) []byte {
 func vtColor(c vt10x.Color, foreground bool) string {
 	if c == vt10x.DefaultFG || c == vt10x.DefaultBG {
 		if foreground {
-			return "38;2;238;234;250"
+			return themeVTColor(textStyle.GetForeground(), "38")
 		}
-		return "48;2;11;6;25"
+		return themeVTColor(ground, "48")
 	}
 	prefix := "48"
 	if foreground {
@@ -478,32 +587,44 @@ func renderTerminal(w *terminalWindow) (string, *tea.Cursor) {
 func (m *windowManager) View() tea.View {
 	layers := []*lipgloss.Layer{lipgloss.NewLayer(textStyle.Render(fit("", m.width, m.height)))}
 	var cursor *tea.Cursor
-	order := make([]int, 0, len(m.Windows))
-	for i := range m.Windows {
-		if i != m.FocusedWindow {
-			order = append(order, i)
-		}
-	}
-	if len(m.Windows) > 0 {
-		order = append(order, m.FocusedWindow)
-	}
-	for _, i := range order {
+	for _, i := range m.windowOrder() {
 		w := m.Windows[i]
+		if cursor != nil && i != m.FocusedWindow && cursor.X >= w.x && cursor.X < w.x+w.w && cursor.Y >= w.y && cursor.Y < w.y+w.h {
+			cursor = nil
+		}
 		content, c := renderTerminal(w)
-		border := muted
+		border, titleInk := borderInk, foreground
 		if i == m.FocusedWindow {
-			border = cyan
+			border, titleInk = pink, pink
 			cursor = c
 		}
 		title := w.Name
+		if m.singleWindow() {
+			visible := m.visibleWindows()
+			for n, index := range visible {
+				if index == i {
+					title = fmt.Sprintf("%d/%d · %s", n+1, len(visible), title)
+					break
+				}
+			}
+		}
 		if label := w.historyLabel(); label != "" {
 			title += " · " + label
 		}
 		if w.ProcessExited() {
 			title += uiText(" · SALIÓ")
 		}
-		interior := accent(ansi.Truncate(title, max(1, w.w-2), "…"), border) + "\n" + fit(content, max(1, w.w-2), max(1, w.h-3))
-		frame := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(border).Background(ground).Width(max(1, w.w-2)).Height(max(1, w.h-2)).MaxWidth(w.w).MaxHeight(w.h).Render(interior)
+		label := ansi.Truncate(title, max(1, w.w-12), "…")
+		pin := "[p]"
+		if w.pinned {
+			pin = "[*]"
+		}
+		button := "[+]"
+		if m.zoomed {
+			button = "[-]"
+		}
+		interior := accent(fit(label, max(1, w.w-10), 1)+pin+" "+button+" ", titleInk) + "\n" + fit(content, max(1, w.w-2), max(1, w.h-3))
+		frame := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(border).BorderBackground(ground).Background(ground).Width(w.w).Height(w.h).MaxWidth(w.w).MaxHeight(w.h).Render(interior)
 		layers = append(layers, lipgloss.NewLayer(frame).X(w.x).Y(w.y))
 	}
 	view := tea.NewView(lipgloss.NewCompositor(layers...).Render())
@@ -531,44 +652,76 @@ func terminalEscape() string {
 var errAutomaticDeferred = errors.New("automatic prompt deferred for human input or busy CLI")
 
 func (w *terminalWindow) sendQueuedChat(provider, prompt string) error {
+	w.promptMu.Lock()
+	defer w.promptMu.Unlock()
 	title, screen := w.agentSignals()
 	if detectAgentState(provider, title, screen) != "idle" {
 		return errAutomaticDeferred
 	}
-	w.writer.Lock()
-	defer w.writer.Unlock()
 	if w.userInputPending.Load() {
 		return errAutomaticDeferred
 	}
-	return w.writePrompt(prompt)
+	return w.submitPrompt(provider, prompt)
 }
 func (w *terminalWindow) sendAutomaticPrompt(provider, prompt string) error {
+	w.promptMu.Lock()
+	defer w.promptMu.Unlock()
 	title, screen := w.agentSignals()
 	if detectAgentState(provider, title, screen) != "idle" {
 		return errAutomaticDeferred
 	}
-	w.writer.Lock()
-	defer w.writer.Unlock()
 	if w.userInputPending.Load() || w.conversationPending.Load() {
 		return errAutomaticDeferred
 	}
-	return w.writePrompt(prompt)
+	return w.submitPrompt(provider, prompt)
+}
+
+// A successful pipe write is not evidence that the CLI submitted the input.
+func (w *terminalWindow) submitPrompt(provider, prompt string) error {
+	if err := w.writePrompt(prompt); err != nil {
+		w.userInputPending.Store(true)
+		return err
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		title, screen := w.agentSignals()
+		state := detectAgentState(provider, title, screen)
+		if state == "working" || state == "blocked" {
+			return nil
+		}
+		if w.ProcessExited() {
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	w.userInputPending.Store(true)
+	return errors.New("provider did not acknowledge submission; input retained, not resent")
 }
 
 func (w *terminalWindow) sendPrompt(prompt string) error {
-	w.writer.Lock()
-	defer w.writer.Unlock()
+	w.promptMu.Lock()
+	defer w.promptMu.Unlock()
 	return w.writePrompt(prompt)
 }
 func (w *terminalWindow) writePrompt(prompt string) error {
 	if prompt != "" {
-		if _, err := w.writer.pty.Write(w.pasteBytes(prompt)); err != nil {
+		started := time.Now()
+		if _, err := w.writer.Write(w.pasteBytes(prompt)); err != nil {
 			return err
 		}
-		// Keep submit out of the same paste burst: both agent TUIs protect pasted newlines.
-		time.Sleep(300 * time.Millisecond)
+		// Wait for the paste to render, rather than racing a fixed delay under load.
+		for {
+			last := time.Unix(0, w.lastOutput.Load())
+			if last.After(started) && time.Since(last) >= 200*time.Millisecond && time.Since(started) >= 300*time.Millisecond {
+				break
+			}
+			if time.Since(started) > 3*time.Second || w.ProcessExited() {
+				return errors.New("provider did not finish receiving pasted input; submit withheld")
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
 	}
-	_, err := w.writer.pty.Write([]byte(terminalEnter()))
+	_, err := w.writer.Write([]byte(terminalEnter()))
 	return err
 }
 

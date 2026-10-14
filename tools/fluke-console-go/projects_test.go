@@ -51,7 +51,7 @@ func TestProjectCreateAndOpenPersistWithoutLosingOtherWork(t *testing.T) {
 	m.globalKey("f1")
 	m.homeKey(tea.KeyPressMsg{Code: tea.KeyDown})
 	m.homeKey(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if m.repo != created || m.view != 1 || m.home || m.pane != 0 {
+	if m.repo != created || m.view != 1 || m.home || m.pane != 1 {
 		t.Fatal("hub did not switch projects")
 	}
 	data, err := os.ReadFile(filepath.Join(m.store.dir, "state.json"))

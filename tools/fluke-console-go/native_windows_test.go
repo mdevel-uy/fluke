@@ -138,21 +138,96 @@ func TestNativeWindowsConfigAndTwoWorkers(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	wait("FLUKE SIGUE EL PROYECTO")
+	tabX := func(label string) int {
+		t.Helper()
+		outer.Lock()
+		defer outer.Unlock()
+		for x := 0; x < 130; x++ {
+			match := true
+			for i, r := range []rune(label) {
+				if outer.Cell(x+i, 1).Char != r {
+					match = false
+					break
+				}
+			}
+			if match {
+				return x
+			}
+		}
+		t.Fatalf("tab %s missing", label)
+		return 0
+	}
+	clickTab := func(label string) {
+		x := tabX(label) + 1
+		input(fmt.Sprintf("\x1b[<0;%d;2M\x1b[<0;%d;2m", x, x))
+	}
+	assertTab := func(label string) {
+		t.Helper()
+		x := tabX(label)
+		outer.Lock()
+		bg := outer.Cell(x, 1).BG
+		outer.Unlock()
+		if bg != vt10x.Color(0xb6a1ed) {
+			t.Fatalf("visible panel did not highlight %s: %#x", label, bg)
+		}
+	}
+	wait("[Workers]")
+	// Edit an actual multiline brief through ConPTY, including the middle of a line.
+	input("\x1b[200~Objetivo: exportar\r\nCriterio: valido\x1b[201~")
+	wait("Criterio: valido")
+	input("\x1b[H2. ")
+	wait("2. ▌Criterio: valido")
+	input("\x1b[F\x1b[D\x1b[3~o")
+	wait("2. Criterio: valido")
+	captureNativeScreen(t, outer, "go-native-brief-editor")
+	input("\x15")
 	input("\x1b[15~")
 	wait("CONFIGURACIÓN")
 	// Exercise Windows Terminal's Win32 input protocol, including navigation
 	// out of an editor. Legacy xterm F-key sequences alone missed this path.
-	for i, marker := range []string{"VISTA GLOBAL", "MISIÓN /", "SESIONES / TERMINALES", "DECISIONES HUMANAS", "CONFIGURACIÓN"} {
+	for i, marker := range []string{"CENTRO DE CONTROL", "[Balance]", "SESIONES / TERMINALES", "DECISIONES HUMANAS", "CONFIGURACIÓN"} {
 		input(fmt.Sprintf("\x1b[%d;%d;0;1;0;1_", 112+i, 59+i))
 		wait(marker)
+		if i == 3 {
+			input("\t\t")
+			wait("Sin decisiones pendientes.")
+			if strings.Contains(screen(), "[Enviar]") || strings.Contains(screen(), "FLUKE / CONVERSACIÓN") {
+				t.Fatal("F4 still exposes a duplicate chat", screen())
+			}
+			captureNativeScreen(t, outer, "go-native-decisions-only")
+		}
 	}
 	outer.Lock()
 	border := outer.Cell(0, 0)
 	outer.Unlock()
-	if uint32(border.FG) != 0x20e9ef {
+	if uint32(border.FG) != 0xa5b9dd {
 		t.Fatalf("se perdió la paleta neón al heredar NO_COLOR: %#x", border.FG)
 	}
+	for _, name := range []string{"Amber CRT", "Phosphor", "Midnight", "Paper", "Fluke"} {
+		input("\x14\x1b[B\r")
+		wait("Tema guardado: " + name)
+	}
+	clickTab("F6")
+	wait("GITHUB / CONEXIÓN")
+	assertTab("F6")
+	clickTab("F5")
+	wait("ORQUESTADOR / CONFIGURACIÓN")
+	input("\x07")
+	wait("CONFIGURACIÓN / GITHUB")
+	assertTab("F5")
+	input("\x06")
+	wait("Contale a Fluke")
+	input("Borrador flotante")
+	wait("Borrador flotante")
+	// Drag the floating chat while keeping the underlying Git configuration.
+	input("\x1b[<0;80;5M\x1b[<32;65;8M\x1b[<0;65;8m")
+	captureNativeScreen(t, outer, "go-native-floating-chat")
+	clickTab("F2")
+	wait("[Balance]")
+	wait("Borrador flotante")
+	input("\x06\x06")
+	clickTab("F5")
+	wait("ORQUESTADOR / CONFIGURACIÓN")
 	if outer != nil {
 		captureNativeScreen(t, outer, "go-configuracion")
 	}
@@ -160,15 +235,15 @@ func TestNativeWindowsConfigAndTwoWorkers(t *testing.T) {
 	input(`["-NoLogo","-NoProfile","-Command","Set-Content -Encoding UTF8 result.json '{\"format\":\"pretty\"}'; Write-Output 'FLUKE_GO_READY'; Write-Output ''; Get-Content -Encoding UTF8 .fluke-task.md; Start-Sleep -Seconds 60"]`)
 	input("\x13")
 	wait("Configuración guardada")
-	input(":goal Exportar datos del proyecto | Exportación JSON válida, documentada y con un ejemplo verificable\r")
+	input("\x0bgoal Exportar datos del proyecto | Exportación JSON válida, documentada y con un ejemplo verificable\r")
 	wait("Objetivo acordado")
-	input(":task Exportación JSON | Exporta datos válidos y maneja errores de escritura\r")
+	input("\x0btask Exportación JSON | Exporta datos válidos y maneja errores de escritura\r")
 	wait("Tarea creada")
-	input(":task Documentación CLI | Documenta el contrato y los ejemplos del comando\r")
+	input("\x0btask Documentación CLI | Documenta el contrato y los ejemplos del comando\r")
 	time.Sleep(200 * time.Millisecond)
-	input(":task Ejemplo de uso | Ejecuta el comando sobre un archivo de ejemplo\r")
+	input("\x0btask Ejemplo de uso | Ejecuta el comando sobre un archivo de ejemplo\r")
 	time.Sleep(200 * time.Millisecond)
-	input(":decision Integrar cambios después de revisar?\r")
+	input("\x0bdecision Integrar cambios después de revisar?\r")
 	wait("Decisión registrada")
 	readState := func() State {
 		t.Helper()
@@ -196,11 +271,11 @@ func TestNativeWindowsConfigAndTwoWorkers(t *testing.T) {
 	mu.Lock()
 	output.Reset()
 	mu.Unlock()
-	input(":start " + saved.Tasks[0].ID + "\r")
+	input("\x0bstart " + saved.Tasks[0].ID + "\r")
 	wait("FLUKE_GO_READY")
 	input("\x18")
 	wait("VENTANAS: arrastrá")
-	input(":start " + saved.Tasks[1].ID + "\r")
+	input("\x0bstart " + saved.Tasks[1].ID + "\r")
 	deadline := time.Now().Add(20 * time.Second)
 	for time.Now().Before(deadline) {
 		if readState().Tasks[1].Status == "running" {
@@ -212,6 +287,11 @@ func TestNativeWindowsConfigAndTwoWorkers(t *testing.T) {
 	if saved.Tasks[0].Status != "running" || saved.Tasks[1].Status != "running" {
 		t.Fatalf("workers not running: %+v\n%s", saved.Tasks, screen())
 	}
+	input("\x10" + saved.Tasks[0].ID)
+	wait("IR A / 1 RESULTADOS")
+	captureNativeScreen(t, outer, "go-native-quick-switch")
+	input("\r")
+	wait("VENTANAS: arrastrá")
 	input("\x18")
 	time.Sleep(150 * time.Millisecond)
 	input("m")
@@ -224,7 +304,7 @@ func TestNativeWindowsConfigAndTwoWorkers(t *testing.T) {
 	if len(readState().Decisions) != 1 {
 		t.Fatal("canceling worker message sent an instruction")
 	}
-	input(":start " + saved.Tasks[2].ID + "\r")
+	input("\x0bstart " + saved.Tasks[2].ID + "\r")
 	wait("Límite de workers alcanzado")
 	if os.Getenv("FLUKE_CONSOLE_MEASURE") == "1" {
 		measure := func() struct{ Memory, CPU float64 } {
@@ -252,10 +332,10 @@ func TestNativeWindowsConfigAndTwoWorkers(t *testing.T) {
 		mu.Unlock()
 		captureNativeScreen(t, outer, "go-sesiones")
 		input("\x1bOP")
-		wait("VISTA GLOBAL")
+		wait("CENTRO DE CONTROL")
 		captureNativeScreen(t, outer, "go-global")
 		input("\x1bOQ")
-		wait("CONTEXTO")
+		wait("TERMINADO CUANDO")
 		captureNativeScreen(t, outer, "go-proyecto")
 		input("\x1bOS")
 		wait("DECISIONES HUMANAS")
@@ -341,7 +421,7 @@ func TestNativeWindowsConfigAndTwoWorkers(t *testing.T) {
 	input("\x1b[118;65;0;1;0;1_")
 	wait("ESTADO LOCAL")
 	input(terminalEscape())
-	wait("VISTA GLOBAL")
+	wait("CENTRO DE CONTROL")
 	input("\x1b[118;65;0;1;0;1_")
 	wait("ESTADO LOCAL")
 	input("a")
@@ -369,7 +449,7 @@ func TestNativeWindowsConfigAndTwoWorkers(t *testing.T) {
 		wait("PUBLICAR PR BORRADOR")
 		captureNativeScreen(t, outer, "go-pr-previa")
 		input(terminalEscape())
-		wait("VISTA GLOBAL")
+		wait("CENTRO DE CONTROL")
 		if remote := readGithubPRFixture(t, prFixture); remote.Pushes != 0 || remote.Creates != 0 {
 			t.Fatal("cancelar publicó un PR", remote)
 		}
@@ -398,7 +478,7 @@ func TestNativeWindowsConfigAndTwoWorkers(t *testing.T) {
 			t.Fatal("publicar PR integró sin confirmación")
 		}
 		input(terminalEscape())
-		wait("VISTA GLOBAL")
+		wait("CENTRO DE CONTROL")
 	}
 	input("\x1b[118;65;0;1;0;1_")
 	wait("ESTADO LOCAL")
@@ -407,7 +487,7 @@ func TestNativeWindowsConfigAndTwoWorkers(t *testing.T) {
 	wait("Confirmar integración")
 	captureNativeScreen(t, outer, "go-integracion")
 	input(terminalEscape())
-	wait("VISTA GLOBAL")
+	wait("CENTRO DE CONTROL")
 	if _, err = os.Stat(filepath.Join(repo, "result.json")); !os.IsNotExist(err) {
 		t.Fatal("cancelar ejecutó la integración")
 	}

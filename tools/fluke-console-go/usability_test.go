@@ -36,7 +36,7 @@ func TestNavigationUsesVisibleProjectAndDecision(t *testing.T) {
 
 func TestChatPunctuationAndNarrowDecisionRemainUsable(t *testing.T) {
 	m := projectTestModel(t)
-	m.repo, m.home, m.view, m.pane, m.width, m.height = t.TempDir(), false, 3, 1, 44, 20
+	m.repo, m.home, m.view, m.pane, m.width, m.height = t.TempDir(), false, 1, 1, 44, 20
 	for _, r := range "https://repo:8000" {
 		m.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
 	}
@@ -44,8 +44,16 @@ func TestChatPunctuationAndNarrowDecisionRemainUsable(t *testing.T) {
 		t.Fatal("punctuation opened command mode")
 	}
 	if !strings.Contains(ansi.Strip(m.View().Content), "https://repo:8000") {
-		t.Fatal("narrow decision hides active chat")
+		t.Fatal("narrow project view hides the active draft")
 	}
+	// F4 is its own view: it must stay inside a narrow terminal.
+	m.view = 3
+	for _, line := range strings.Split(ansi.Strip(m.View().Content), "\n") {
+		if ansi.StringWidth(line) > 44 {
+			t.Fatal("narrow decisions overflow", line)
+		}
+	}
+	m.view = 1
 	m.Update(tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
 	if m.chatDraft[m.repo] != "" {
 		t.Fatal("Ctrl+U did not clear draft")
@@ -108,7 +116,7 @@ func TestGlobalDefaultsKeepBusyProjectAndWorkerPreviewSelection(t *testing.T) {
 		m.sessions[id] = id
 	}
 	m.selected, m.pane = 3, 2
-	if !strings.Contains(ansi.Strip(m.workerPreviews(80, 16)), "PREVIEW_TASK3") {
+	if !strings.Contains(ansi.Strip(m.workerPreviews(80, 16)), "PREVIEW_task3") {
 		t.Fatal("selected worker preview is offscreen")
 	}
 	m.view = 2

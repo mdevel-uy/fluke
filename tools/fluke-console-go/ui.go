@@ -10,14 +10,16 @@ import (
 	"strings"
 )
 
-// Approved BBS palette: cyan structure, magenta focus, violet ink.
-var cyan = lipgloss.Color("#20e9ef")
-var pink = lipgloss.Color("#f00ed5")
-var lime = lipgloss.Color("#6ff566")
-var amber = lipgloss.Color("#f5d547")
-var muted = lipgloss.Color("#9298bd")
-var ground = lipgloss.Color("#0b0619")
-var textStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#eeeafa")).Background(ground)
+// Historic color names now represent the selected theme's semantic roles.
+var cyan = lipgloss.Color("#a5b9dd")
+var pink = lipgloss.Color("#b6a1ed")
+var lime = lipgloss.Color("#a5c4a0")
+var amber = lipgloss.Color("#dfbe86")
+var muted = lipgloss.Color("#9493a7")
+var ground = lipgloss.Color("#15151e")
+var foreground = lipgloss.Color("#e2e0ec")
+var borderInk color.Color = lipgloss.Color("#34343f")
+var textStyle = lipgloss.NewStyle().Foreground(foreground).Background(ground)
 
 func accent(text string, c color.Color) string {
 	return lipgloss.NewStyle().Foreground(c).Background(ground).Render(text)
@@ -88,59 +90,88 @@ func fit(text string, w, h int) string {
 func wrap(text string, w int) string   { return ansi.Wrap(text, max(1, w), "") }
 func rule(w int, c color.Color) string { return accent(strings.Repeat("─", max(1, w)), c) }
 func frame(title, body string, w, h int, c color.Color, focused bool) string {
-	return neonFrame(title, body, w, h, c, focused)
+	return panelFrame(title, body, w, h, c, focused, false)
 }
 
 func section(title string, w int) string { return accent(title, cyan) + "\n" + rule(w, cyan) }
 func (m *model) headerRows() int {
-	if m.width < 76 || m.height < 26 {
-		return 3
+	if m.shellMode() {
+		return 1
 	}
-	return 6
+	return 3
 }
 func (m *model) footerRows() int {
-	if m.height < 26 {
-		return 3
+	if m.shellMode() {
+		return 2
 	}
-	return 4
+	return 3
 }
 func (m *model) workspaceHeight() int { return max(1, m.height-m.headerRows()-m.footerRows()) }
 func (m *model) header() string {
-	w := max(1, m.width)
-	pending := 0
-	for _, d := range m.state.Decisions {
-		if d.Answer == nil {
-			pending++
-		}
-	}
-	if m.headerRows() == 3 {
-		label := filepath.Base(m.repo)
-		if m.home {
-			label = localText("All projects", "Todos los proyectos")
-		}
-		return fit(accent(" fluke / ", cyan)+label+accent(fmt.Sprintf("   %d/%d workers", m.liveWorkers(), m.state.MaxWorkers), lime)+"\n"+m.tabs()+"\n"+rule(w, cyan), w, 3)
+	if m.shellMode() {
+		return m.shellHeader()
 	}
 	return m.brandHeader(m.tabs())
 }
 
-func (m *model) tabs() string {
-	labels := []string{localText("[F1] Projects", "[F1] Proyectos"), uiText("[F2] Proyecto"), uiText("[F3] Sesiones"), uiText("[F4] Decisiones"), "F5 Config", "F6 GitHub", "F7 Review"}
-	if m.width < 120 {
-		labels = []string{localText("F1 Projects", "F1 Proyectos"), uiText("F2 Proyecto"), uiText("F3 Sesiones"), uiText("F4 Decisiones"), "F5 Config", "F6 GitHub", "F7 Review"}
+func (m *model) tabLabels() []string {
+	variants := [][]string{
+		{localText("[F1] Projects", "[F1] Proyectos"), uiText("[F2] Proyecto"), uiText("[F3] Sesiones"), uiText("[F4] Decisiones"), "F5 Config", "F6 GitHub", "F7 Review"},
+		{localText("F1 Projects", "F1 Proyectos"), uiText("F2 Proyecto"), uiText("F3 Sesiones"), uiText("F4 Decisiones"), "F5 Config", "F6 GitHub", "F7 Review"},
+		{localText("F1 All", "F1 Todos"), "F2 Repo", "F3 PTY", uiText("F4 Decidir"), "F5", "F6 GH", "F7 Diff"},
+		{"F1", "F2", "F3", "F4", "F5", "F6", "F7"},
 	}
-	if m.width < 88 {
-		labels = []string{localText("F1 All", "F1 Todos"), "F2 Repo", "F3 PTY", uiText("F4 Decidir"), "F5", "F6 GH", "F7 Diff"}
+	extra := 7
+	if m.shellMode() {
+		// The header has no room for bracketed labels; it keeps only the palette hint.
+		variants, extra = [][]string{
+			{localText("F1 Projects", "F1 Proyectos"), localText("F2 Project", "F2 Proyecto"), localText("F3 Sessions", "F3 Sesiones"), localText("F4 Decisions", "F4 Decisiones"), "F5 Config", "F6 GitHub", localText("F7 Review", "F7 Revisión")},
+			{localText("F1 All", "F1 Todos"), localText("F2 Project", "F2 Proyecto"), localText("F3 Live", "F3 Sesión"), localText("F4 Decide", "F4 Decidir"), "F5 Config", "F6 GH", "F7 Diff"},
+			{"F1", "F2", "F3", "F4", "F5", "F6", "F7"},
+		}, 8
 	}
-	parts := []string{}
-	for i, label := range labels {
-		active := (i == m.view && !m.githubOpen && !m.config && !m.review.open) || (i == 4 && m.config && !m.review.open) || (i == 5 && m.githubOpen && !m.config && !m.review.open) || (i == 6 && m.review.open)
-		if active {
-			parts = append(parts, lipgloss.NewStyle().Foreground(ground).Background(pink).Bold(true).Render(" "+label+" "))
-		} else {
-			parts = append(parts, accent(" "+label+" ", cyan))
+	for _, labels := range variants {
+		if ansi.StringWidth(strings.Join(labels, ""))+len(labels)*2+len(labels)-1+extra <= m.navBudget() {
+			return labels
 		}
 	}
-	return strings.Join(parts, accent("│", muted))
+	return variants[len(variants)-1]
+}
+
+// Match the same panel precedence as View, regardless of the underlying view.
+func (m *model) activeTab() int {
+	if m.review.open {
+		return 6
+	}
+	if m.config {
+		return 4
+	}
+	if m.githubOpen {
+		return 5
+	}
+	return m.view
+}
+
+func (m *model) tabs() string {
+	parts := []string{}
+	for i, label := range m.tabLabels() {
+		if i == m.activeTab() {
+			parts = append(parts, lipgloss.NewStyle().Foreground(ground).Background(pink).Bold(true).Render(" "+label+" "))
+		} else {
+			parts = append(parts, accent(" "+label+" ", muted))
+		}
+	}
+	if m.shellMode() {
+		return strings.Join(parts, " ") + accent(" [Alt+K]", cyan)
+	}
+	bar := strings.Join(parts, " ") + accent(" [Chat]", cyan)
+	if ansi.StringWidth(bar)+9 <= m.navBudget() {
+		bar += accent(" [Ctrl+P]", cyan)
+	}
+	if ansi.StringWidth(bar)+8 <= m.navBudget() {
+		bar += accent(" [Alt+K]", cyan)
+	}
+	return bar
 }
 
 func (m *model) footer() string {
@@ -149,27 +180,41 @@ func (m *model) footer() string {
 	if message == "" {
 		message = uiText("Tu proyecto, tus decisiones, tus workers.")
 	}
-	first := accent("─╱╲─ │ ", cyan) + message
+	first := accent(" "+message, muted)
 	keys := accent(uiText(" [Tab] Panel   [Enter] Enviar   [PgUp/PgDn] Historial   [Ctrl+Y] Copiar   [Ctrl+K] Comandos   [Ctrl+Q] Salir"), cyan)
-	if m.view == 1 && m.pane == 0 {
-		keys = accent(localText(" [↑/↓] Task   [Enter] Worker   [m] Message   [q] Queue   [v/F7] Review   [p] Pause/resume", " [↑/↓] Tarea   [Enter] Worker   [m] Mensaje   [q] Cola   [v/F7] Revisar   [p] Pausar/seguir"), cyan)
+	if m.view == 3 {
+		keys = accent(localText(" [↑/↓] Decision   [F2] Project chat   [Ctrl+Q] Quit", " [↑/↓] Decisión   [F2] Chat del proyecto   [Ctrl+Q] Salir"), cyan)
+	}
+	if m.view == 1 && (m.pane == 0 || m.pane == 2) {
+		keys = accent(localText(" [↑/↓] Task   [Enter] Worker   [i] Balance   [a] Agent   [m] Message   [q] Queue   [v/F7] Review   [p] Pause/resume", " [↑/↓] Tarea   [Enter] Worker   [i] Balance   [a] Agente   [m] Mensaje   [q] Cola   [v/F7] Revisar   [p] Pausar/seguir"), cyan)
 	}
 	if m.view == 0 && m.pane == 2 {
 		keys = accent(localText(" [↑/↓] Alert   [Enter] Open project / task / session   [Tab] Panel", " [↑/↓] Alerta   [Enter] Abrir proyecto / tarea / sesión   [Tab] Panel"), cyan)
 	}
 	if m.view == 2 {
-		keys = accent(localText(" [Tab] Focus   [m] Message   [t] Tile   [Enter] Native terminal   [PgUp/PgDn] History", " [Tab] Foco   [m] Mensaje   [t] Mosaico   [Enter] Terminal nativa   [PgUp/PgDn] Historial"), cyan)
+		keys = accent(localText(" [Tab] Focus   [m] Message   [z] Maximize   [t] Tile   [Enter] Terminal   [PgUp/PgDn] History", " [Tab] Foco   [m] Mensaje   [z] Maximizar   [t] Mosaico   [Enter] Terminal   [PgUp/PgDn] Historial"), cyan)
 		if m.terminals.Mode == windowMode {
-			first = accent(uiText("VENTANAS: arrastrá el título · bordes redimensionan"), cyan) + " │ " + message
+			first = accent(localText("WINDOWS: drag title / edges · [p] pin", "VENTANAS: arrastrá título / bordes · [p] fijar"), cyan) + " │ " + message
 		} else {
 			first = accent(uiText("TERMINAL: entrada directa"), cyan) + " │ " + message
-			keys = accent(uiText(" [Ctrl+X] Ventanas   [Shift+PgUp/PgDn] Historial   [Shift+End] En vivo   [Ctrl+Y] Copiar"), cyan)
+			keys = accent(localText(" [Ctrl+X] Windows [Ctrl+B] Select text [Ctrl+Y] Copy · mouse moves / resizes", " [Ctrl+X] Ventanas [Ctrl+B] Seleccionar [Ctrl+Y] Copiar · mouse mueve / redimensiona"), cyan)
 		}
 	}
 	if m.home && m.view == 0 {
-		keys = accent(localText(" [N] New project   [O] Open   [↑/↓] Choose   [Enter] Tasks   [C] Chat   [Tab] Attention", " [N] Nuevo proyecto   [O] Abrir   [↑/↓] Elegir   [Enter] Tareas   [C] Chat   [Tab] Atención"), cyan)
+		keys = accent(localText(" [N] New project   [O] Open   [↑/↓] Choose   [Enter] Tasks   [C] Chat   [i] Balance   [Tab] Attention", " [N] Nuevo proyecto   [O] Abrir   [↑/↓] Elegir   [Enter] Tareas   [C] Chat   [i] Balance   [Tab] Atención"), cyan)
 		if m.pane == 2 {
 			keys = accent(localText(" [↑/↓] Alert   [Enter] Open   [Tab] Projects   [N] New   [O] Open repository", " [↑/↓] Alerta   [Enter] Abrir   [Tab] Proyectos   [N] Nuevo   [O] Abrir repositorio"), cyan)
+		}
+	}
+	if w < 100 {
+		if m.view == 0 && m.home {
+			keys = accent(localText("[N/O] Projects [C] Chat [i] Balance [Tab]", "[N/O] Proyectos [C] Chat [i] Balance [Tab]"), cyan)
+		}
+		if m.view == 1 && (m.pane == 0 || m.pane == 2) {
+			keys = accent(localText(" [i] Balance [a] Agent [v] Review [Tab]", " [i] Balance [a] Agente [v] Revisar [Tab]"), cyan)
+		}
+		if m.view == 2 && m.terminals.Mode == windowMode {
+			keys = accent(localText(" [Tab] Focus [z] Zoom [t] Tile [Enter]", " [Tab] Foco [z] Zoom [t] Mosaico [Enter]"), cyan)
 		}
 	}
 	if m.githubOpen {
@@ -191,6 +236,9 @@ func (m *model) footer() string {
 			if m.review.publicationEditing != 0 {
 				keys = accent(uiText(" [Tab] Campo   [Enter] Nueva línea   [Ctrl+U] Limpiar   [Ctrl+S] Vista previa   [Esc] Vista previa"), cyan)
 			}
+		}
+		if m.reviewOverlay() && len(m.reviewTasks()) > 1 && m.review.integration == nil && m.review.publication == nil {
+			keys = accent(localText(" [Tab] Delivery", " [Tab] Entrega"), cyan) + keys
 		}
 	}
 	if m.command != nil {
@@ -215,17 +263,49 @@ func (m *model) footer() string {
 	}
 	if m.config {
 		keys = accent(uiText(" [Tab] Campo   [←/→] Elegir   [Enter] Guardar   [Ctrl+Enter] Aplicar a Fluke   [Ctrl+R] Comprobar   [Ctrl+G] GitHub"), cyan)
+		if w < 100 {
+			keys = accent(localText("[Tab] Field [Enter] Save [Ctrl+T] Theme", "[Tab] Campo [Enter] Guardar [Ctrl+T] Tema"), cyan)
+		}
 		if m.configSection == 1 {
 			keys = accent(uiText(" [Tab] Acción   [Enter] Ejecutar   [o] Abrir navegador   [Esc] Cancelar / volver   [Ctrl+O] Orquestador"), cyan)
+		}
+		if m.configSection == 2 {
+			first = accent(localText("Theme preview · Enter saves", "Vista previa · Enter guarda"), cyan)
+			keys = accent(localText("[↑/↓] Theme [Enter] Save [Esc] Cancel", "[↑/↓] Tema [Enter] Guardar [Esc] Volver"), cyan)
+			if strings.Contains(m.notice, localText("Could not save", "No se pudo guardar")) {
+				first = m.notice
+			}
+		}
+		if m.configSection == 3 {
+			keys = accent(localText("[Ctrl+←/→] Section [Esc] Agent", "[Ctrl+←/→] Sección [Esc] Agente"), cyan)
+		}
+		if m.configSection == 4 {
+			keys = accent(localText("[Ctrl+L] Sign in [Ctrl+R] Check [Esc] Back", "[Ctrl+L] Conectar [Ctrl+R] Comprobar [Esc] Volver"), cyan)
+			if m.shellMode() && w >= 90 {
+				keys = accent(localText("[↑/↓] Connection [Ctrl+L] Sign in [Ctrl+R] Check [Esc] Back", "[↑/↓] Conexión [Ctrl+L] Conectar [Ctrl+R] Comprobar [Esc] Volver"), cyan)
+			}
 		}
 	}
 	if m.projects.open {
 		keys = accent(localText(" [Tab] Field   [Enter] Continue   [Ctrl+U] Clear field   [Esc] Cancel", " [Tab] Campo   [Enter] Seguir   [Ctrl+U] Limpiar campo   [Esc] Cancelar"), cyan)
 	}
-	if m.footerRows() == 3 {
-		return fit(first+"\n"+rule(w, cyan)+"\n"+keys, w, 3)
+	if m.floatingVisible() && m.floating.focused {
+		keys = accent(localText("[Enter] Send [Esc] Panel [Ctrl+F] Close", "[Enter] Enviar [Esc] Panel [Ctrl+F] Cerrar"), cyan)
 	}
-	return fit(accent("┌"+strings.Repeat("─", max(0, w-2))+"┐", cyan)+"\n"+accent("│", cyan)+fit(first, w-2, 1)+accent("│", cyan)+"\n"+accent("│", cyan)+fit(keys, w-2, 1)+accent("│", cyan)+"\n"+accent("└"+strings.Repeat("─", max(0, w-2))+"┘", cyan), w, 4)
+	if m.switcher != nil {
+		first = accent(localText(" Jump to Fluke or a worker · no tasks are started", " Ir a Fluke o a un worker · no inicia tareas"), cyan)
+		if m.switcher.commands {
+			first = accent(localText(" Views and settings · Ctrl+U clears search", " Vistas y ajustes · Ctrl+U limpia la búsqueda"), cyan)
+		}
+		keys = accent(localText(" [↑/↓] Choose [Enter/click] Open [Esc] Back", " [↑/↓] Elegir [Enter/clic] Abrir [Esc] Volver"), cyan)
+	}
+	if m.store != nil && w < 100 && m.switcher == nil && m.command == nil && m.workerMessageID == "" && !m.quitting && !m.projects.open {
+		first = accent(" [Alt+K] ", cyan) + first
+	}
+	if m.shellMode() {
+		return fit(first+"\n"+keys, w, m.footerRows())
+	}
+	return fit(rule(w, borderInk)+"\n"+first+"\n"+keys, w, m.footerRows())
 }
 func (m *model) contextContent(w int) string {
 	tasks := m.projectTasks()
@@ -335,43 +415,7 @@ func terminalPreview(w *terminalWindow, cols, rows int) string {
 }
 
 func (m *model) conversation(w, h int, compact bool) string {
-	inside := max(1, w-4)
-	bodyRows := max(1, h-4)
-	entryRows := 4
-	transcriptRows := max(1, bodyRows-entryRows)
-	content := ""
-	if messages := m.state.Conversations[m.repo]; len(messages) > 0 {
-		content = conversationTranscriptAt(messages, inside, transcriptRows, m.chatScroll)
-	} else {
-		content = strings.Join(brandTranscriptLines([]ConversationMessage{{Role: "fluke", Text: uiText("Contame qué querés lograr. Acordamos el alcance, preparo el plan y coordino los workers.\n\nVos decidís lo importante y revisás las entregas.")}}, inside), "\n") + "\n"
-		if goal := m.state.Goals[m.repo]; goal.ID != "" {
-			content += strong(uiText("OBJETIVO ACORDADO"), lime) + "\n" + wrap(goal.Objective, inside) + "\n\n"
-		}
-		if m.sessionAlive("fluke:" + m.repo) {
-			content += strong(uiText("FLUKE ESTÁ ORGANIZANDO EL TRABAJO"), cyan) + "\n" + accent(uiText("F3 · entrar a su sesión"), muted) + "\n\n"
-		} else {
-			content += strong(uiText("ABRIR ORQUESTADOR"), pink) + "\n" + accent(uiText("[Enter] iniciar conversación"), cyan) + "\n\n"
-		}
-		for _, t := range m.projectTasks() {
-			if t.AgentMessage != "" {
-				content += strong("worker>", statusInk(taskAgentStatus(t))) + " " + wrap(conciseAgentMessage(t.AgentMessage), inside-8) + "\n\n"
-			}
-		}
-		if !compact && len(m.projectTasks()) == 0 {
-			content += accent(uiText("PRIMER ENCARGO"), cyan) + "\n" + wrap(uiText(":task título | criterio de aceptación"), inside) + "\n\n" + accent(uiText("F6 · importar una issue de GitHub"), muted)
-		}
-	}
-	state, hint := m.sessionSummary()
-	ink := cyan
-	if state == uiText("NECESITA TU ATENCIÓN") || state == uiText("DESCONECTADO") {
-		ink = amber
-	}
-	statusLine := strong(state+" · ", ink) + hint
-	if m.chatScroll > 0 {
-		statusLine = accent(uiText("HISTORIAL · PgDn vuelve a los mensajes recientes"), amber)
-	}
-	composer := ansi.Truncate(statusLine, inside, "…") + "\n" + brandComposer(m.chatDraft[m.repo], inside, m.pane == 1)
-	return fit(content, inside, transcriptRows) + "\n" + fit(composer, inside, entryRows)
+	return m.chatBody(w, h, m.pane == 1 && !m.floatingVisible())
 }
 
 func (m *model) globalView(w, h int) string {
@@ -402,6 +446,20 @@ func taskRow(t Task, i int, selected bool, w int) string {
 }
 func (m *model) planContent(w, h int) string {
 	tasks := m.projectTasks()
+	if m.insights {
+		body := strong(localText("PROJECT BALANCE", "BALANCE DEL PROYECTO"), cyan) + "\n" + metricsContent(summarizeProject(m.state, m.repo), w)
+		if len(tasks) > 0 {
+			task := tasks[m.selected%len(tasks)]
+			detail := strong(task.Title, pink) + "\n" + metricsContent(summarizeProject(State{Tasks: []Task{task}}, m.repo), w)
+			if h < 22 {
+				total := summarizeProject(m.state, m.repo)
+				body = detail + "\n\n" + wrap(fmt.Sprintf(localText("Project: %d/%d accepted · %s observed", "Proyecto: %d/%d aceptadas · %s observado"), total.Accepted, total.Total, metricsDuration(total.ObservedMS)), w)
+			} else {
+				body += "\n\n" + detail
+			}
+		}
+		return body + "\n\n" + accent(localText("[i] Back to plan · ↑/↓ Select task", "[i] Volver al plan · ↑/↓ Elegir tarea"), cyan)
+	}
 	if len(tasks) == 0 && m.state.Goals[m.repo].ID != "" {
 		goal := m.state.Goals[m.repo]
 		return strong(uiText("CONTEXTO / ")+goal.Objective, cyan) + "\n" + wrap(goal.Acceptance, w) + "\n\n" + strong(uiText("OBJETIVO ACORDADO"), lime) + "\n\n" + wrap(uiText("Fluke prepara las tareas del plan. Podés conversar para afinarlo."), w)
@@ -417,6 +475,9 @@ func (m *model) planContent(w, h int) string {
 		title, acceptance = goal.Objective, goal.Acceptance
 	}
 	content := strong(uiText("CONTEXTO / ")+title, cyan) + "\n" + wrap(acceptance, w) + "\n\n"
+	if current.WorkerConfig != nil {
+		content += accent(localText("Worker: ", "Worker: ")+configLabel(current.WorkerConfig), cyan) + "\n"
+	}
 	if err := taskScopeError(m.state, current); err != nil && current.Status != "accepted" {
 		content += strong(uiText("REVISAR ALCANCE"), amber) + "\n" + wrap(err.Error(), w) + "\n\n"
 	} else if current.Paused && current.Note != "" {
@@ -529,34 +590,40 @@ func (m *model) workerPreviews(w, h int) string {
 }
 
 func (m *model) projectView(w, h int) string {
-	if w < 92 || h < 20 {
-		if m.pane == 1 {
-			return frame(uiText("FLUKE SIGUE EL PROYECTO"), m.conversation(w, h, true), w, h, cyan, true)
-		}
+	if m.shellProject() {
+		return m.shellProjectView(h)
+	}
+	chat, detail := m.projectPanels()
+	body := ""
+	if chat.w > 0 {
+		body = frame("FLUKE / "+filepath.Base(m.repo), m.conversation(chat.w, chat.h, false), chat.w, chat.h, cyan, m.pane == 1)
+	}
+	if detail.w > 0 {
+		panel := frame("PLAN", m.taskPanel(detail.w-4, detail.h-4), detail.w, detail.h, cyan, m.pane == 0)
 		if m.pane == 2 {
-			return m.workerPreviews(w, h)
+			panel = frame("WORKERS", m.taskPanel(detail.w-4, detail.h-4), detail.w, detail.h, cyan, true)
 		}
-		return frame(uiText("MISIÓN / ")+strings.ToUpper(filepath.Base(m.repo)), m.planContent(w-4, h-4), w, h, cyan, true)
+		if body == "" {
+			body = panel
+		} else {
+			body = lipgloss.JoinHorizontal(lipgloss.Top, body, " ", panel)
+		}
 	}
-	right := max(36, w*45/100)
-	left := w - right - 1
-	upper := max(17, h*57/100)
-	if h-upper < 10 {
-		upper = h / 2
-	}
-	overview := frame(uiText("MISIÓN / ")+strings.ToUpper(filepath.Base(m.repo)), m.planContent(left-4, upper-4), left, upper, cyan, m.pane == 0)
-	return lipgloss.JoinHorizontal(lipgloss.Top, overview+"\n"+m.workerPreviews(left, h-upper-1), " ", frame(uiText("FLUKE SIGUE EL PROYECTO"), m.conversation(right, h, true), right, h, cyan, m.pane == 1))
+	return fit(m.projectBar(), w, 1) + "\n" + body
 }
 
-func (m *model) decisionsView(w, h int) string {
-	left := max(23, w/5)
-	mainW := w - left - 1
-	if w < 92 {
-		mainW = w
+func (m *model) decisionsPanels(w, h int) string {
+	questionW := w
+	if w >= 92 {
+		questionW = w * 3 / 5
 	}
 	question := uiText("Sin decisiones pendientes.")
 	answer := ""
 	index := m.selectedDecision()
+	if index < 0 {
+		body := "\n" + accent(question, lime) + "\n\n" + wrap(localText("Requests that need your answer will appear here.\n\nF2 opens your project chat with Fluke.", "Acá aparecerán las solicitudes que necesiten tu respuesta.\n\nF2 abre el chat del proyecto con Fluke."), max(1, w-4))
+		return frame(uiText("DECISIONES HUMANAS / ")+localText("UP TO DATE", "AL DÍA"), body, w, h, cyan, true)
+	}
 	taskID := ""
 	if index >= 0 {
 		d := m.state.Decisions[index]
@@ -568,6 +635,10 @@ func (m *model) decisionsView(w, h int) string {
 	}
 	title := uiText("NECESITA TU DECISIÓN")
 	ink := pink
+	if index >= 0 && m.state.Decisions[index].Assistance {
+		title = localText("FLUKE / TECHNICAL HELP", "FLUKE / AYUDA TÉCNICA")
+		ink = cyan
+	}
 	if answer != "" {
 		title = uiText("DECISIÓN REGISTRADA")
 		ink = lime
@@ -579,25 +650,23 @@ func (m *model) decisionsView(w, h int) string {
 	if index >= 0 && m.state.Decisions[index].ProposedTitle != "" {
 		decisionHelp = uiText("[Enter] Aprobar propuesta · [r] Rechazar")
 	}
-	questionBody := "\n" + accent(fmt.Sprintf(uiText("DECISIÓN %02d"), index+1), ink) + "\n\n" + wrap(question, max(1, mainW-6))
+	questionBody := "\n" + accent(fmt.Sprintf(uiText("DECISIÓN %02d"), index+1), ink) + "\n" + accent(decisionHelp, ink) + "\n\n" + wrap(question, max(1, questionW-4))
 	if answer != "" {
-		questionBody += "\n\n" + accent(uiText("RESPUESTA"), lime) + "\n" + wrap(answer, max(1, mainW-6))
+		questionBody += "\n\n" + accent(uiText("RESPUESTA"), lime) + "\n" + wrap(answer, max(1, questionW-4))
+		if m.state.Decisions[index].AnsweredBy == "fluke" {
+			questionBody += "\n" + accent(localText("Answered by Fluke · technical guidance", "Respondió Fluke · orientación técnica"), cyan)
+		}
 	}
 	if index >= 0 && m.state.Decisions[index].Supersedes > 0 {
 		questionBody += "\n\n" + accent(fmt.Sprintf(localText("Replaces answer %02d", "Reemplaza respuesta %02d"), m.state.Decisions[index].Supersedes), amber)
 	}
 	if w < 92 {
-		if m.pane == 1 {
-			return frame(localText("FLUKE / PROJECT CHAT", "FLUKE / CHAT DEL PROYECTO"), m.conversation(w, h, true), w, h, cyan, true)
-		}
-		return frame(uiText("DECISIONES HUMANAS / ")+title, questionBody+"\n\n"+decisionHelp, w, h, ink, true)
+		return frame(uiText("DECISIONES HUMANAS / ")+title, questionBody, w, h, ink, true)
 	}
-	upper := max(9, h/2)
-	questionW := mainW * 3 / 5
-	previewW := mainW - questionW - 1
+	previewW := w - questionW - 1
 	preview := uiText("La decisión se conserva en el proyecto.\n\nLas sesiones mantienen su contexto mientras decidís.")
 	for _, t := range m.projectTasks() {
-		if taskID != "" && t.ID != taskID {
+		if taskID == "" || t.ID != taskID {
 			continue
 		}
 		preview = strong(t.Title, cyan) + "\n" + accent(status(taskAgentStatus(t)), statusInk(taskAgentStatus(t))) + "\n\n" + wrap(t.Acceptance, previewW-4)
@@ -609,17 +678,27 @@ func (m *model) decisionsView(w, h int) string {
 		}
 		break
 	}
-	top := lipgloss.JoinHorizontal(lipgloss.Top, frame(uiText("DECISIONES HUMANAS / ")+title, questionBody, questionW, upper, ink, m.pane == 0), " ", frame(uiText("SESIÓN / CONTEXTO"), preview, previewW, upper, cyan, false))
-	actions := accent(decisionHelp, pink) + "   " + accent(uiText("[Tab] Hablar con Fluke"), cyan) + "\n\n"
-	lower := frame(uiText("FLUKE / CONVERSACIÓN"), actions+m.conversation(mainW, max(1, h-upper-3), true), mainW, max(4, h-upper-1), cyan, m.pane == 1)
-	return lipgloss.JoinHorizontal(lipgloss.Top, frame(uiText("PROYECTO / SESIONES"), m.contextContent(left-4), left, h, cyan, false), " ", top+"\n"+strings.Repeat(" ", mainW)+"\n"+lower)
+	return lipgloss.JoinHorizontal(lipgloss.Top, frame(uiText("DECISIONES HUMANAS / ")+title, questionBody, questionW, h, ink, true), " ", frame(uiText("SESIÓN / CONTEXTO"), preview, previewW, h, cyan, false))
 }
 func (m *model) configView(w, h int) string {
+	if m.configSection == 4 {
+		return m.connectionView(w, h)
+	}
+	if m.configSection == 3 {
+		return m.typographyView(w, h)
+	}
+	if m.configSection == 2 {
+		return m.themeView(w, h)
+	}
 	if m.configSection == 1 {
 		return m.githubConfigView(w, h)
 	}
 	labels := []string{uiText("Proveedor (←/→)"), uiText("Ejecutable"), uiText("Modelo (←/→ o escribir)"), uiText("Argumentos JSON"), uiText("Máximo de workers")}
-	content := accent(uiText("ORQUESTADOR / CONFIGURACIÓN"), pink) + "\n\n"
+	formWidth := w
+	if w >= 104 {
+		formWidth = w * 55 / 100
+	}
+	content := m.configNav(formWidth-4) + "\n" + accent(localText("Ctrl+T · Theme: ", "Ctrl+T · Tema: ")+consoleThemes[themeIndex(m.state.Theme)].Name, cyan) + "\n"
 	for i, label := range labels {
 		marker := "  "
 		c := muted
@@ -634,6 +713,11 @@ func (m *model) configView(w, h int) string {
 		content += accent(marker+label, c) + "\n  " + value + "\n\n"
 	}
 	content += accent("Ctrl+E · English / Español", cyan) + "\n"
+	autonomy := localText("OFF", "NO")
+	if m.draftAutonomous {
+		autonomy = localText("ON · unrestricted files/commands", "SÍ · archivos/comandos sin restricciones")
+	}
+	content += accent(localText("Ctrl+A · Autonomous Fluke: ", "Ctrl+A · Fluke autónomo: ")+autonomy, pink) + "\n"
 	content += accent(uiText("Enter / Ctrl+S · guardar para nuevas sesiones"), cyan) + "\n" + accent(uiText("Ctrl+Enter · reiniciar Fluke con este modelo"), pink) + "\n" + accent(uiText("Las tareas, el historial y los workers se conservan."), muted)
 	if w >= 104 {
 		left := w * 55 / 100
@@ -648,7 +732,7 @@ func (m *model) configView(w, h int) string {
 	return frame(uiText("CONFIGURACIÓN"), strings.Join(lines[min(offset, len(lines)):], "\n"), w, h, pink, true)
 }
 
-func (m *model) providerConfigContent(w int) string {
+func (m *model) providerStatusContent(w int) string {
 	content := strong(strings.ToUpper(m.draft[0]), cyan) + "\n" + rule(w, muted) + "\n"
 	if m.providerBusy {
 		content += accent(uiText("COMPROBANDO CLI Y AUTENTICACIÓN…"), amber)
@@ -660,10 +744,28 @@ func (m *model) providerConfigContent(w int) string {
 			ink = lime
 		}
 		content += strong(wrap(m.provider.Message, w), ink)
+		cli := localText("not found", "no encontrada")
+		if m.provider.Available {
+			cli = localText("available", "disponible")
+		}
+		auth := localText("unverified", "sin verificar")
+		if m.provider.AuthKnown {
+			auth = localText("sign-in needed", "requiere iniciar sesión")
+			if m.provider.Authenticated {
+				auth = localText("authenticated", "autenticada")
+			}
+		}
+		content += "\n" + wrap("CLI: "+cli+" · "+localText("Account: ", "Cuenta: ")+auth, w)
 		if m.provider.Version != "" {
 			content += "\n" + accent(m.provider.Version, muted)
 		}
 	}
+	return content
+}
+
+func (m *model) providerConfigContent(w int) string {
+	content := m.providerStatusContent(w)
+	content += "\n\n" + strong(localText("SAVED FOR NEW SESSIONS", "GUARDADO PARA NUEVAS SESIONES"), cyan) + "\n" + wrap(configLabel(m.state.Orchestrator), w)
 	content += "\n\n" + strong(uiText("FLUKE ACTUAL"), cyan) + "\n" + wrap(m.effectiveConfigLabel(), w)
 	if m.sessionAlive("fluke:" + m.repo) {
 		state, hint := m.sessionSummary()
@@ -694,7 +796,7 @@ func (m *model) providerConfigContent(w int) string {
 func (m *model) githubConfigView(w, h int) string {
 	a := m.auth
 	if h < 24 {
-		content := accent("GITHUB", pink) + " · "
+		content := m.configNav(w-4) + "\n" + accent("GITHUB", pink) + " · "
 		if a.Username != "" {
 			content += a.Username
 		} else {
@@ -721,7 +823,7 @@ func (m *model) githubConfigView(w, h int) string {
 		}
 		return frame(uiText("CONFIGURACIÓN / GITHUB"), content, w, h, pink, true)
 	}
-	content := accent(uiText("CONFIGURACIÓN / GITHUB"), pink) + accent(uiText("   [Ctrl+O] Orquestador"), cyan) + "\n\n"
+	content := m.configNav(w-4) + "\n\n"
 	if a.Available {
 		content += accent(uiText("● GitHub CLI disponible"), lime)
 	} else {
@@ -812,8 +914,13 @@ func (m *model) githubView(w, h int) string {
 	return frame(uiText("GITHUB / CONEXIÓN"), header, w, 7, cyan, false) + "\n" + panels
 }
 func (m *model) View() tea.View {
+	theme := m.state.Theme
+	if m.config && m.configSection == 2 {
+		theme = consoleThemes[m.themeSelected].ID
+	}
+	applyTheme(theme)
 	if m.setup.open {
-		view := tea.NewView(textStyle.Render(m.setupView()))
+		view := tea.NewView(themeCanvas(textStyle.Render(m.setupView())))
 		view.BackgroundColor = ground
 		view.AltScreen = true
 		return view
@@ -828,11 +935,11 @@ func (m *model) View() tea.View {
 	case 1:
 		body = m.projectView(w, bodyH)
 	case 2:
-		if len(m.terminals.Windows) > 0 {
+		if len(m.terminals.visibleWindows()) > 0 {
 			terminal = m.terminals.View()
 			body = terminal.Content
 		} else {
-			body = frame(uiText("SESIONES / TERMINALES"), m.contextContent(max(1, w-4))+uiText("\n\n:fluke abre el orquestador · :start ID abre un worker"), w, bodyH, cyan, false)
+			body = frame(uiText("SESIONES / TERMINALES"), localText("No worker terminals open.\n\nTalk to Fluke in F2 to plan and start work.\nFluke runs in the background.", "No hay terminales de workers abiertas.\n\nHablá con Fluke en F2 para planificar e iniciar tareas.\nFluke funciona en segundo plano."), w, bodyH, cyan, false)
 		}
 	case 3:
 		body = m.decisionsView(w, bodyH)
@@ -853,20 +960,29 @@ func (m *model) View() tea.View {
 			}
 			break
 		}
-		body = m.review.view(w, bodyH)
+		body = m.reviewView(w, bodyH)
 	}
 	if m.projects.open {
 		body = m.projectEditorView(w, bodyH)
 	}
+	if m.floatingVisible() {
+		body = m.floatingChatView(body)
+		if m.floatingHidesCursor(terminal.Cursor) {
+			terminal.Cursor = nil
+		}
+	}
+	if m.switcher != nil {
+		body = m.switcherView(w, bodyH)
+		terminal.Cursor = nil
+	}
 	content := textStyle.Render(fit(m.header()+"\n"+fit(body, w, bodyH)+"\n"+m.footer(), w, h))
 	// Nested styles reset SGR; restore the canvas ink instead of host defaults.
-	content = strings.ReplaceAll(content, "\x1b[0m", "\x1b[0;38;2;238;234;250;48;2;11;6;25m")
+	content = themeCanvas(content)
 	view := tea.NewView(content)
 	view.BackgroundColor = ground
 	view.AltScreen = true
-	// Let the terminal own text selection/copy. Capture the mouse only while
-	// arranging windows; a regular terminal should behave like a terminal.
-	if m.view == 2 && m.terminals.Mode == windowMode && !m.projects.open && !m.config && !m.githubOpen && !m.review.open && m.command == nil && m.workerMessageID == "" {
+	// Ctrl+B yields mouse handling back to the host for native text selection.
+	if !m.mouseDisabled && !m.projects.open && !m.quitting {
 		view.MouseMode = tea.MouseModeAllMotion
 	}
 	if m.view == 2 && !m.projects.open && !m.config && !m.githubOpen && !m.review.open && !m.quitting && m.command == nil && terminal.Cursor != nil {

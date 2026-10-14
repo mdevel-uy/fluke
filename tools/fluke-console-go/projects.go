@@ -191,6 +191,7 @@ func (m *model) receiveProject(v projectResult) {
 	}
 	p.open = false
 	m.repo, m.home, m.view, m.selected, m.chatScroll = v.repo, false, 1, 0, 0
+	m.insights = false
 	m.pane = 1
 }
 
@@ -200,6 +201,8 @@ func (m *model) homeKey(v tea.KeyPressMsg) tea.Cmd {
 		items = len(m.attentionItems())
 	}
 	switch v.String() {
+	case "i":
+		m.insights = !m.insights
 	case "n":
 		m.openProjectEditor(true)
 	case "o":
@@ -227,7 +230,8 @@ func (m *model) homeKey(v tea.KeyPressMsg) tea.Cmd {
 			m.openAttention(m.selected % items)
 			return nil
 		}
-		m.repo, m.home, m.view, m.pane, m.chatScroll = m.state.Projects[m.selected%items], false, 1, 0, 0
+		m.repo, m.home, m.view, m.pane, m.chatScroll = m.state.Projects[m.selected%items], false, 1, 1, 0
+		m.insights = false
 		m.selected = 0
 		if v.String() == "c" {
 			m.pane = 1
@@ -253,8 +257,11 @@ func (m *model) projectActivity(repo string) string {
 		if t.Status == "awaiting_review" {
 			counts["review"]++
 		}
+		if t.Status == "accepted" {
+			counts["accepted"]++
+		}
 	}
-	return fmt.Sprintf(localText("%d tasks · %d running · %d queued · %d to review", "%d tareas · %d en curso · %d en cola · %d a revisar"), counts["total"], counts["running"], counts["queued"], counts["review"])
+	return fmt.Sprintf(localText("%d/%d accepted · %d running\n%d queued · %d to review", "%d/%d aceptadas · %d en curso\n%d en cola · %d a revisar"), counts["accepted"], counts["total"], counts["running"], counts["queued"], counts["review"])
 }
 
 func (m *model) homeProjects(w, h int) string {
@@ -266,7 +273,7 @@ func (m *model) homeProjects(w, h int) string {
 	if m.pane == 2 {
 		selected = -1
 	}
-	page := max(1, (h-8)/5)
+	page := max(1, (h-7)/6)
 	start := max(0, selected-page+1)
 	for i := start; i < len(m.state.Projects) && i < start+page; i++ {
 		repo := m.state.Projects[i]
@@ -274,7 +281,7 @@ func (m *model) homeProjects(w, h int) string {
 		if i == selected {
 			ink, marker = pink, "› "
 		}
-		content += strong(marker+filepath.Base(repo), ink) + "\n" + accent(tailText(repo, w), muted) + "\n" + wrap(m.projectActivity(repo), w) + "\n\n"
+		content += strong(marker+filepath.Base(repo), ink) + "\n" + accent(tailText(repo, w), muted) + "\n" + fit(m.projectActivity(repo), w, 2) + "\n\n"
 	}
 	if len(m.state.Projects) > page {
 		content += accent(localText("↑/↓ more projects", "↑/↓ más proyectos"), muted)
@@ -287,6 +294,9 @@ func (m *model) homeView(w, h int) string {
 		if m.pane == 2 {
 			return frame(localText("ACROSS YOUR PROJECTS / ATTENTION", "TODOS TUS PROYECTOS / ATENCIÓN"), m.attentionContent(w-4), w, h, cyan, true)
 		}
+		if m.insights {
+			return frame(localText("FLUKE / PROJECT BALANCE", "FLUKE / BALANCE DEL PROYECTO"), m.portfolioContent(w-4, h-4), w, h, cyan, true)
+		}
 		return frame(localText("YOUR PROJECTS", "TUS PROYECTOS"), m.homeProjects(w-4, h), w, h, cyan, true)
 	}
 	left := w * 40 / 100
@@ -294,24 +304,42 @@ func (m *model) homeView(w, h int) string {
 	if m.pane == 2 {
 		return lipgloss.JoinHorizontal(lipgloss.Top, frame(localText("YOUR PROJECTS", "TUS PROYECTOS"), m.homeProjects(left-4, h), left, h, cyan, false), " ", frame(localText("GLOBAL ATTENTION", "ATENCIÓN GLOBAL"), m.attentionContent(right-4), right, h, cyan, true))
 	}
-	body := strong(localText("ONE PLACE TO KEEP WORK MOVING", "UN LUGAR PARA SEGUIR TODO EL TRABAJO"), cyan) + "\n\n"
-	if len(m.state.Projects) > 0 {
-		repo := m.state.Projects[m.selected%len(m.state.Projects)]
-		if m.pane == 2 {
-			repo = m.repo
+	body := m.portfolioContent(right-4, h-4)
+	return lipgloss.JoinHorizontal(lipgloss.Top, frame(localText("YOUR PROJECTS", "TUS PROYECTOS"), m.homeProjects(left-4, h), left, h, cyan, m.pane == 0), " ", frame(localText("FLUKE / MISSION CONTROL", "FLUKE / CENTRO DE CONTROL"), body, right, h, cyan, false))
+}
+
+func (m *model) portfolioContent(w, h int) string {
+	if len(m.state.Projects) == 0 {
+		return strong("FLUKE", pink) + "\n\n" + wrap(localText("An idea or an existing app? Create or open a project. I'll help define the brief, divide the work and keep your workers moving.", "¿Una idea o una app existente? Creá o abrí un proyecto. Te ayudo a definir el brief, repartir el trabajo y destrabar a tus workers."), w)
+	}
+	repo := m.state.Projects[m.selected%len(m.state.Projects)]
+	message := localText("Tell me who this is for, what needs to change and how we'll know it works. I'll help shape the brief and coordinate the workers.", "Contame para quién es, qué tiene que cambiar y cómo vamos a comprobarlo. Te ayudo a armar el brief y coordinar los workers.")
+	messages := m.state.Conversations[repo]
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == "fluke" {
+			message = conciseAgentMessage(messages[i].Text)
+			break
 		}
-		if repo != "" {
-			body += strong(filepath.Base(repo), pink) + "\n" + wrap(m.projectActivity(repo), right-4) + "\n\n"
-			if goal := m.state.Goals[repo]; goal.ID != "" {
-				body += strong(localText("AGREED GOAL", "OBJETIVO ACORDADO"), lime) + "\n" + fit(wrap(goal.Objective, right-4), right-4, 3) + "\n\n"
-			}
-		}
-	} else {
-		body += wrap(localText("Projects keep their own goals, tasks and conversations. Workers share the limit you chose, and keep running while you move between projects.", "Cada proyecto conserva sus objetivos, tareas y conversaciones. Los workers comparten el límite que elegiste y siguen trabajando cuando cambiás de proyecto."), right-4) + "\n\n"
+	}
+	lines := strings.Split(wrap(message, w), "\n")
+	metrics := metricsContent(summarizeProject(m.state, repo), w)
+	reserved := strings.Count(metrics, "\n") + 7
+	if m.state.Goals[repo].ID != "" && h >= 24 {
+		reserved += 4
+	}
+	count := min(len(lines), max(1, min(5, h-reserved)))
+	shown := strings.Join(lines[:count], "\n")
+	if count < len(lines) {
+		shown += accent("…", muted)
+	}
+	body := strong(filepath.Base(repo), cyan) + "\n" + strong("FLUKE", pink) + "\n" + shown + "\n" + accent(localText("[C] Chat · [Enter] Plan · [i] Balance", "[C] Chat · [Enter] Plan · [i] Balance"), cyan) + "\n\n"
+	body += metrics + "\n"
+	if goal := m.state.Goals[repo]; goal.ID != "" && h >= 24 {
+		body += "\n" + strong(localText("AGREED GOAL", "OBJETIVO ACORDADO"), lime) + "\n" + fit(wrap(goal.Objective, w), w, 2) + "\n"
 	}
 	alerts := len(m.attentionItems())
-	body += strong(fmt.Sprintf(localText("%d ITEMS NEED YOUR ATTENTION", "%d ELEMENTOS NECESITAN TU ATENCIÓN"), alerts), attentionInk(alerts)) + "\n" + accent(localText("[Tab] See alerts from every project", "[Tab] Ver alertas de todos los proyectos"), cyan) + "\n\n" + workerCapacity(m.liveWorkers(), m.state.MaxWorkers, 8)
-	return lipgloss.JoinHorizontal(lipgloss.Top, frame(localText("YOUR PROJECTS", "TUS PROYECTOS"), m.homeProjects(left-4, h), left, h, cyan, m.pane == 0), " ", frame(localText("GLOBAL OVERVIEW", "VISTA GLOBAL"), wrap(body, right-4), right, h, cyan, m.pane == 2))
+	body += "\n" + accent(fmt.Sprintf(localText("[Tab] Global attention: %d", "[Tab] Atención global: %d"), alerts), attentionInk(alerts))
+	return body
 }
 
 func (m *model) projectEditorView(w, h int) string {

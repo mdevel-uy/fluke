@@ -9,29 +9,34 @@ import (
 	"strings"
 )
 
-// neonFrame follows the approved console: ink on the dark canvas, a quiet cyan
-// outline, and one stronger magenta outline for the panel that owns the focus.
-// It keeps frame's dimensions so navigation and terminal coordinates stay valid.
-func neonFrame(title, body string, w, h int, ink color.Color, focused bool) string {
+// Keep title/body coordinates shared with hit testing; only floating panels need an outline.
+func panelFrame(title, body string, w, h int, ink color.Color, focused, outlined bool) string {
 	if w < 4 || h < 4 {
 		return fit(body, w, h)
 	}
-	left, right, topLeft, topRight, bottomLeft, bottomRight, horizontal := "│", "│", "┌", "┐", "└", "┘", "─"
+	ink = foreground
+	marker := "  "
 	if focused {
 		ink = pink
-		left, right, topLeft, topRight, bottomLeft, bottomRight, horizontal = "┃", "┃", "┏", "┓", "┗", "┛", "━"
+		marker = "› "
 	}
 	inside := w - 2
-	outline := func(first, last string) string { return accent(first+strings.Repeat(horizontal, inside)+last, ink) }
+	left, right := " ", " "
+	top, bottom := strings.Repeat(" ", w), strings.Repeat(" ", w)
+	if outlined {
+		left, right = accent("│", borderInk), accent("│", borderInk)
+		top = accent("┌"+strings.Repeat("─", inside)+"┐", borderInk)
+		bottom = accent("└"+strings.Repeat("─", inside)+"┘", borderInk)
+	}
 	lines := []string{
-		outline(topLeft, topRight),
-		accent(left, ink) + fit(" "+strong(strings.ToUpper(title), ink), inside, 1) + accent(right, ink),
-		accent(left, ink) + accent(strings.Repeat("─", inside), ink) + accent(right, ink),
+		top,
+		left + fit(accent(marker+title, ink), inside, 1) + right,
+		left + accent(strings.Repeat("─", inside), borderInk) + right,
 	}
 	for _, line := range strings.Split(fit(body, inside-2, h-4), "\n") {
-		lines = append(lines, accent(left, ink)+" "+line+" "+accent(right, ink))
+		lines = append(lines, left+" "+line+" "+right)
 	}
-	lines = append(lines, outline(bottomLeft, bottomRight))
+	lines = append(lines, bottom)
 	return strings.Join(lines, "\n")
 }
 
@@ -41,52 +46,57 @@ var brandLogo = [...]string{
 	" ██    ██▄▄ ▀███▀ ██▀█▄ ▀█▄▄▄",
 }
 
-// brandHeader is exactly six terminal rows; tabs are supplied by the app so
-// visual navigation and its mouse targets share the same source.
+// Navigation always occupies row 1, regardless of terminal width.
 func (m *model) brandHeader(tabs string) string {
 	w := max(1, m.width)
-	logo := brandLogo
 	pending := 0
 	for _, decision := range m.state.Decisions {
 		if decision.Answer == nil {
 			pending++
 		}
 	}
-	infoWidth := max(1, w-36)
-	info := []string{
-		strong(uiText("TU PROYECTO, EN VIVO"), cyan) + accent("  /  LOCAL", muted),
-		strong(uiText("PROYECTO: ")+filepath.Base(m.repo), cyan) + accent("  ·  "+tailText(m.repo, max(1, infoWidth-ansi.StringWidth(filepath.Base(m.repo))-15)), muted),
-		workerCapacity(m.liveWorkers(), m.state.MaxWorkers, 8) + accent(fmt.Sprintf(uiText("   %d decisiones pendientes"), pending), attentionInk(pending)),
-	}
+	label := filepath.Base(m.repo)
 	if m.home {
-		info[0] = strong(localText("ALL YOUR PROJECTS, IN MOTION", "TODOS TUS PROYECTOS, EN MARCHA"), cyan)
-		info[1] = strong(fmt.Sprintf(localText("%d PROJECTS", "%d PROYECTOS"), len(m.state.Projects)), cyan) + accent(localText("  ·  [N] Create  [O] Open", "  ·  [N] Crear  [O] Abrir"), muted)
+		label = fmt.Sprintf(localText("%d projects", "%d proyectos"), len(m.state.Projects))
+		if len(m.state.Projects) == 1 {
+			label = localText("1 project", "1 proyecto")
+		}
 	}
 	if !m.home && m.state.PausedProjects[m.repo] {
-		info[0] = strong(uiText("PROYECTO EN PAUSA"), amber) + accent(uiText("  /  FLUKE DISPONIBLE"), cyan)
+		label += localText(" · paused", " · en pausa")
 	}
-	lines := []string{accent("┌"+strings.Repeat("─", max(0, w-2))+"┐", cyan)}
-	for i, row := range logo {
-		line := strong(" "+row, cyan) + "  " + ansi.Truncate(info[i], infoWidth, "…")
-		lines = append(lines, accent("│", cyan)+fit(line, w-2, 1)+accent("│", cyan))
+	right := fmt.Sprintf("%d/%d workers", m.liveWorkers(), m.state.MaxWorkers)
+	if pending > 0 {
+		right += fmt.Sprintf(localText(" · %d to decide", " · %d por decidir"), pending)
 	}
-	lines = append(lines, accent("│", cyan)+fit(tabs, w-2, 1)+accent("│", cyan), accent("└"+strings.Repeat("─", max(0, w-2))+"┘", cyan))
-	return strings.Join(lines, "\n")
+	left := strong(" fluke", cyan) + accent("  /  ", borderInk) + label
+	if !m.home && m.repo != "" && w >= 100 {
+		identity := cleanAgentText(m.effectiveConfigLabel())
+		if ansi.StringWidth(left)+ansi.StringWidth(identity)+ansi.StringWidth(right)+7 <= w {
+			left += accent("  ·  "+identity, muted)
+		}
+	}
+	if w < 64 {
+		right = fmt.Sprintf("%d/%d", m.liveWorkers(), m.state.MaxWorkers)
+	}
+	space := max(1, w-ansi.StringWidth(right)-2)
+	line := fit(ansi.Truncate(left, space, "…"), space, 1) + " " + accent(right, attentionInk(pending))
+	return fit(line+"\n"+tabs+"\n"+rule(w, borderInk), w, 3)
 }
 
 // brandTranscriptLines returns all visible conversation lines, rather than
 // cutting the history here: the app can page through the same styled transcript.
 func brandTranscriptLines(messages []ConversationMessage, w int) []string {
 	lines := []string{}
-	for _, msg := range messages {
-		label, ink := "FLUKE", pink
+	for index, msg := range messages {
+		label, ink := "Fluke", pink
 		if msg.Role == "human" {
-			label, ink = uiText("VOS"), cyan
+			label, ink = localText("You", "Vos"), muted
 		}
 		gutter, continuation := "", ""
 		if w >= 22 {
-			gutter = strong(fmt.Sprintf("%-5s", label), ink) + accent(" │ ", ink)
-			continuation = "      " + accent("│ ", ink)
+			gutter = strong(fmt.Sprintf("%-5s", label), ink) + "   "
+			continuation = "        "
 		} else {
 			lines = append(lines, strong(label, ink))
 		}
@@ -103,7 +113,9 @@ func brandTranscriptLines(messages []ConversationMessage, w int) []string {
 		} else if msg.Delivery == "uncertain" {
 			lines = append(lines, continuation+accent(uiText("Envío incierto · revisá F3"), amber))
 		}
-		lines = append(lines, "")
+		if index < len(messages)-1 {
+			lines = append(lines, "")
+		}
 	}
 	return lines
 }

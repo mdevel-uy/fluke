@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/colorprofile"
@@ -28,7 +29,20 @@ func run() error {
 	monochrome := flag.Bool("no-color", false, uiText("Interfaz sin colores"))
 	language := flag.String("lang", "", "Interface language: en or es")
 	setup := flag.Bool("setup", false, "Open first-run setup")
+	autonomous := flag.Bool("autonomous", false, "Enable and save autonomous Fluke (unrestricted files/commands, no provider approvals)")
+	demo := flag.Bool("demo", false, "Explore three simulated projects without files, accounts or model calls")
+	acpCheck := flag.String("acp-check", "", "Start an ACP agent command, run only its initialize handshake (no model call) and print what it offers")
+	acpWorker := flag.String("acp-worker", "", "Internal: run an ACP agent behind a terminal front-end (used by Fluke workers); the task prompt follows --")
 	flag.Parse()
+	if *acpCheck != "" {
+		return runACPCheck(*acpCheck)
+	}
+	if *acpWorker != "" {
+		return runACPWorker(*acpWorker, strings.Join(flag.Args(), " "))
+	}
+	if *demo {
+		return runDemo(*language, *monochrome)
+	}
 	initial, root := "", ""
 	if *repo != "" {
 		var err error
@@ -50,6 +64,9 @@ func run() error {
 		return err
 	}
 	defer store.lock.Close()
+	if *autonomous {
+		state.AutonomousFluke = true
+	}
 	chosenLanguage := *language
 	if chosenLanguage == "" {
 		chosenLanguage = state.Language

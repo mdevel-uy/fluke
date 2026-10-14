@@ -5,13 +5,78 @@
 Aplicación nativa de terminal con interfaz, ventanas y sesiones propias de
 Fluke. Herdr y Tuios son referencias para estudiar el estado de los agentes,
 el movimiento de ventanas y el mouse en consola; no son dependencias ni
-aplicaciones embebidas. La dirección visual sigue los mockups de
-[`design/fluke-herdr`](../../design/fluke-herdr/VISUAL-DIRECTION.md).
+aplicaciones embebidas. La dirección visual actual está en [DESIGN.md](DESIGN.md): grafito, acentos
+suaves y paneles contenidos, con inspiración en TUIOS.
 
 Esta base usa Bubble Tea y Lipgloss para la interfaz, PTYs locales y un emulador
 VT. El [prototipo Rust](../fluke-console/README.md) se conserva como referencia.
 El ejecutable Windows ocupa aproximadamente 9 MiB.
 Este tamaño no constituye una medición de consumo, velocidad o estabilidad.
+
+## Referencia Gentle Shell
+
+La [investigación de Gentle Shell](../../design/fluke-herdr/GENTLE-SHELL-RESEARCH.md)
+se aplica a la navegación y los ajustes de la consola:
+
+- **Alt+K** busca vistas y ajustes; **Ctrl+P** busca proyectos y workers.
+  **Ctrl+K** conserva el editor de comandos.
+- **F5** reúne Agente, Conexión, GitHub, Tema y Texto. Clic o **Ctrl+←/→**
+  cambia de sección conservando el borrador de agente.
+- **Conexión** distingue CLI disponible y cuenta autenticada. **Ctrl+L** abre
+  el login nativo; **Ctrl+R** comprueba el estado sin iniciar trabajo.
+- **Gentle** es una sexta paleta opcional en Tema. Texto explica cómo cambiar
+  la fuente y el tamaño en el terminal anfitrión.
+
+Este incremento está en el código fuente; los ejecutables y capturas previos
+requieren reconstrucción y validación externa antes de representar estos cambios.
+
+## Centro de control y asistencia de Fluke
+
+F1 muestra primero la última actualización de Fluke para el proyecto seleccionado,
+seguida por tareas aceptadas, integradas, pendientes, en revisión y bloqueadas.
+`C` abre su conversación. En terminales pequeñas, `i` alterna la lista y el balance;
+Tab conserva acceso a la atención de todos los proyectos. F2 → `i` muestra el
+balance del proyecto y de la tarea seleccionada. La estética conserva la identidad de Fluke con fondo grafito, acentos suaves de
+azul y lavanda, cabecera compacta y separadores finos.
+
+El tiempo es trabajo **observado por esta consola**, sumado entre workers:
+excluye pausas, bloqueos explícitos, espera de revisión y períodos sin observación.
+No equivale a tiempo de CPU ni a facturación. Se guarda en cada cambio de estado
+y al menos cada 30 segundos durante el seguimiento; un cierre abrupto puede perder
+ese último intervalo. No reconstruye el historial previo a estas métricas.
+
+La calidad se expresa como entregas aceptadas sin pedidos de corrección sobre
+entregas aceptadas con historial medido; no es un porcentaje de precisión del LLM.
+Tokens y USD son opcionales, **reportados** por el worker con un archivo de
+evidencia local. Se reemplazan los snapshots de una misma ejecución, sin sumarlos
+dos veces, y se indica cuántas ejecuciones aportan datos. Sin evidencia disponible,
+se muestra «no disponibles», no cero. No se consultan tarifas ni se atribuye consumo
+del orquestador a esas cifras; tampoco se certifica la veracidad de la evidencia.
+
+Los contratos guían el brief (usuario, problema, alcance y aceptación verificable),
+la exploración de una app existente y la entrega completa del worker. Un reporte
+`blocked` con `help_requested=true` y una pregunta concreta crea asistencia técnica.
+Fluke usa `answer_worker` con `task_id`, `decision_number` y `answer`, o
+`escalate_worker` para pasarla al humano. La respuesta conserva `answered_by=fluke`
+y usa el mismo mailbox durable y protección ante envíos inciertos de las respuestas
+humanas. Solo se aplica al reporte vigente del mismo repo/worker; no reanuda pausas,
+responde decisiones de producto ni acepta permisos nativos. El contexto del
+orquestador incluye un resumen del portfolio, con autoridad limitada a su repo.
+
+F2 → `a` prepara `:agent ID | codex/claude/default | modelo`: permite mezclar CLIs
+por tarea y volver al valor global. Se cambia en workers detenidos y pendientes;
+no reemplaza procesos activos. Para un proveedor distinto se usa su comando en
+PATH sin heredar los argumentos incompatibles del otro proveedor.
+
+En F3 → Ctrl+X, `z` o `[+]` en el título maximiza/restaura la ventana; Tab y
+Shift+Tab cambian el foco. Se conserva la distribución flotante al restaurar.
+En mosaico, un ancho inferior a 64 columnas o filas insuficientes muestra una
+sesión enfocada completa, con su posición entre las sesiones. Al ampliar vuelve
+el mosaico. La rueda recorre el historial bajo el puntero;
+Enter entra al terminal y Ctrl+X vuelve a la gestión.
+
+Ver [notas de diseño](DESIGN-NOTES-2026-10-12.md) y
+[validación de este incremento](QA-2026-10-12.md).
 
 ## Compilar y ejecutar
 
@@ -34,11 +99,42 @@ Se verificó la compilación sin CGO para Linux amd64 y macOS arm64 el 2026-10-0
 
 ## Uso
 
+- F2 abre un espacio de proyecto con **Chat, Plan, Workers y Balance**. Fluke
+  recibe el foco al entrar; en pantallas amplias, la conversación ocupa el 60%
+  izquierdo y el detalle de tareas queda a la derecha. Los controles y las tareas
+  admiten clic. Las entregas listas ofrecen **Revisar**, con criterio y evidencia
+  antes del diff. PgUp/PgDn o la rueda recorren detalles largos.
+- Desde 100 × 24 celdas F2 es un **shell**: cabecera de una fila, la conversación
+  como superficie y, a la derecha, un rail con Proyectos, Plan (con el detalle de
+  la tarea elegida) y Atención. Sobre el editor, la tarjeta **Workers** muestra
+  cada tarea con estado, proveedor/modelo, tokens, costo y tiempo; lo que un worker
+  no reportó aparece como «—». Tab alterna editor, workers y plan; el clic en el
+  rail cambia de tarea o de proyecto. Con menos celdas, o con el chat flotante,
+  se mantiene el espacio de paneles alternados.
+- El editor conserva párrafos pegados y permite flechas, Home/End, Delete y
+  Ctrl+Home/End. **Enter** envía; **Alt+Enter**, Shift+Enter o Ctrl+J insertan una
+  línea. **Enviar**, **Sesión** y **Fijar** están visibles en el propio chat.
+- Las pestañas superiores admiten clic y marcan el panel que se está mostrando:
+  F5 incluye la configuración de conexión a GitHub; F6 muestra las issues.
+- **[Chat] / Ctrl+F** abre el chat flotante, recupera su foco si lo perdió, o lo
+  cierra si ya tenía foco. Queda por encima
+  del plan, GitHub, configuración y sesiones. Arrastrá el título para moverlo o
+  los bordes para cambiar su tamaño. Clic dentro le da foco; Esc/Tab lo devuelve
+  al panel de fondo. El título identifica el proyecto actual, con un borrador
+  independiente por repositorio. Apertura, posición y tamaño se guardan al abrir,
+  cerrar o soltar un arrastre; se recuperan al abrir un proyecto en la consola.
+
+- Temas: **F5 → Ctrl+T**, flechas para previsualizar y Enter para guardar.
+  Esc descarta la vista previa. Hay seis paletas: Fluke (grafito),
+  Amber CRT, Phosphor, Midnight, Gentle y Paper (clara). La elección se conserva al
+  volver a abrir la consola y no reinicia agentes. Los colores ANSI explícitos
+  de las CLIs se conservan; su texto/fondo predeterminados siguen el tema.
+
 - En Windows, `open-fluke.cmd` abre la aplicación en Windows Terminal. Acepta
   `-Repo ruta`, `-StateDir ruta`, `-Setup` y `-Language en/es`; `open-fluke.ps1 -Here` usa la consola actual.
   El launcher usa un comando codificado para conservar rutas con espacios.
 - F1: todos los proyectos; N crea uno, O abre un repo, flechas eligen,
-  Enter abre tareas y C abre la conversación. F2: objetivo, plan y workers.
+  Enter o C abre la conversación. F2: conversación, plan, workers y balance.
   F3: sesiones. F4: decisiones de producto/alcance. F5: configuración.
   Funcionan también desde configuración, GitHub y revisión. Alt+1–Alt+7 son
   alternativas cuando el equipo reserva las teclas de función.
@@ -89,8 +185,8 @@ Se verificó la compilación sin CGO para Linux amd64 y macOS arm64 el 2026-10-0
 - En Fluke, Proyecto y Decisiones, Tab cambia de panel. La conversación conserva
   un borrador por repositorio; Enter abre la sesión o envía el mensaje al CLI activo.
   PgUp/PgDn o flechas permiten leer el historial. Ctrl+Y copia la conversación,
-  la sesión, la issue o la revisión actual. Fuera del modo de mover ventanas,
-  el mouse pertenece al terminal: seleccioná texto y usá su atajo de copia.
+  la sesión, la issue o la revisión actual. **Ctrl+B** alterna entre controles de
+  mouse y selección nativa de texto; en selección usá el atajo de copia del terminal.
 - El primer arranque guía detección de harnesses, modelo, GitHub, repositorio y
   cupo. El inglés es predeterminado; Ctrl+L elige español en el inicio y F5 →
   Ctrl+E cambia el idioma después. `--setup` reabre el recorrido y `--lang es`
@@ -127,6 +223,9 @@ Se verificó la compilación sin CGO para Linux amd64 y macOS arm64 el 2026-10-0
 - En sesiones, Ctrl+X vuelve a la gestión de ventanas.
   En gestión, Enter entra al terminal, Tab cambia el foco y `t` ordena en mosaico.
   El mouse sobre el título mueve una ventana; sus bordes permiten redimensionarla.
+  Sigue disponible al escribir en la terminal. **[p]** en el título (o `p` en
+  gestión) fija la ventana por encima de las demás; **[*]** la desfija.
+  Esa fijación de terminales dura la sesión; la del chat de Fluke sí se guarda.
 - En gestión, PgUp/PgDn y Home/End leen el historial de la PTY. Dentro del
   terminal, Shift+PgUp/PgDn y Shift+Home/End permiten leerlo sin quitarle esas
   teclas a la CLI. Esc/End vuelve a la salida en vivo; escribir también vuelve
@@ -310,17 +409,18 @@ Si la sesión se cerró, la corrección vuelve a la cola con el mismo worktree y
 comentario en el encargo de arranque. Pausas y cupo global se conservan. Esto no
 edita automáticamente el objetivo/spec cuando el comentario cambia el alcance.
 
-La vista propia limita los mensajes de agentes a seis líneas/1200 caracteres
-Unicode. Los reportes originales y sesiones completas permanecen disponibles;
-los mensajes humanos no se recortan en su almacenamiento. Tras Enter, un mensaje
+La conversación guarda completo el mensaje válido de `update.json`; el archivo
+tiene un límite de 16 KiB y el contrato pide respuestas de menos de 12000 bytes.
+Los resúmenes del portfolio siguen siendo breves. Los mensajes humanos admiten
+16 KB y no se recortan en su almacenamiento. Tras Enter, un mensaje
 se guarda en la cola antes de liberar el compositor para un nuevo borrador.
 Desencolar durante la preparación cancela su arranque. Los reportes, respuestas
 y entregas actualizan el contexto y notifican al orquestador cuando su CLI
 está disponible. Un ack que no puede escribirse se reintenta sin repetir la orden.
 
 La conversación principal guarda mensajes `VOS` y `FLUKE`; el orquestador
-entrega respuestas resumidas por `update.json`. El contrato pide únicamente
-cambios relevantes, bloqueos, decisiones y próximo paso, sin trazas ni comandos.
+entrega respuestas por `update.json`. El contrato permite desarrollar un brief o
+explicación con varios párrafos y pide avances útiles, sin trazas de herramientas.
 Las respuestas idénticas consecutivas no agregan ruido. La terminal completa
 sigue en F3. Los mensajes humanos esperan cuando la CLI está ocupada o muestra
 un diálogo de permisos; se conserva el mensaje en el historial y no se mezcla con entrada
@@ -394,6 +494,9 @@ cuenta la respuesta al teclado del worker. También hay una prueba opcional
 `FLUKE_LIVE_ORCHESTRATOR=codex`: objetivo acordado → creación autónoma de tarea
 → worktree/worker → resultado verificado → aviso al orquestador → respuesta
 resumida en la conversación de Fluke. Usa modelos reales y consumo de la cuenta.
+`FLUKE_LIVE_HELP=1`, junto a `FLUKE_LIVE_ORCHESTRATOR=codex`, prueba el pedido
+técnico del worker, la respuesta de Fluke y la continuación hasta una entrega
+verificada. Este recorrido pasó el 2026-10-12; ver [evidencia y límites](QA-2026-10-12.md).
 `FLUKE_LIVE_REWORK=1`, junto a `FLUKE_LIVE_PROVIDER`, agrega corrección humana →
 continuación del mismo worker → archivo corregido verificado externamente.
 `FLUKE_LIVE_RECOVERY=1` agrega cierre/reapertura de la consola → recuperación del

@@ -19,8 +19,38 @@ func (m *model) globalKey(key string) (bool, tea.Cmd) {
 		m.selected, m.chatScroll = 0, 0
 	}
 	switch key {
+	case "ctrl+p", "alt+k":
+		commands := key == "alt+k"
+		if m.switcher != nil && m.switcher.commands == commands {
+			m.switcher = nil
+		} else if !m.setup.open && !m.quitting && !m.projects.busy {
+			m.terminals.endMouse()
+			m.floating.gesture = nil
+			m.switcher = &quickSwitcher{commands: commands}
+		}
+		return true, nil
+	case "ctrl+f":
+		if m.home && len(m.state.Projects) > 0 {
+			m.repo = m.state.Projects[m.selected%len(m.state.Projects)]
+		}
+		if m.floatingVisible() && !m.floating.focused {
+			m.floating.focused = true
+			return true, nil
+		}
+		m.toggleFloatingChat()
+		return true, nil
+	case "ctrl+b":
+		m.terminals.endMouse()
+		m.floating.gesture = nil
+		m.mouseDisabled = !m.mouseDisabled
+		m.notice = localText("Mouse active · Ctrl+B enables text selection", "Mouse activo · Ctrl+B permite seleccionar texto")
+		if m.mouseDisabled {
+			m.notice = localText("Text selection · Ctrl+B restores mouse controls", "Selección de texto · Ctrl+B restaura el mouse")
+		}
+		return true, nil
 	case "f1", "f2", "f3", "f4":
 		m.closePanels()
+		m.insights = false
 		m.view = int(key[1] - '1')
 		m.home = m.view == 0
 		if m.view == 1 && m.repo == "" {
@@ -29,6 +59,9 @@ func (m *model) globalKey(key string) (bool, tea.Cmd) {
 		}
 		m.selected = 0
 		m.pane = 0
+		if m.view == 1 {
+			m.pane = 1
+		}
 		if m.view == 0 {
 			for i, repo := range m.state.Projects {
 				if repo == m.repo {
@@ -49,8 +82,9 @@ func (m *model) globalKey(key string) (bool, tea.Cmd) {
 				local++
 			}
 		}
-		if m.view == 2 && m.sessionAlive("fluke:"+m.repo) {
-			m.focus("fluke:" + m.repo)
+		m.hideFlukeTerminals()
+		if m.view == 2 {
+			m.terminals.Mode = windowMode
 		}
 		return true, nil
 	case "f5":
@@ -66,6 +100,7 @@ func (m *model) globalKey(key string) (bool, tea.Cmd) {
 		return true, nil
 	case "ctrl+x":
 		m.closePanels()
+		m.hideFlukeTerminals()
 		m.view = 2
 		m.terminals.Mode = windowMode
 		return true, nil
@@ -111,7 +146,25 @@ func (m *model) globalKey(key string) (bool, tea.Cmd) {
 	return false, nil
 }
 
+func (m *model) hideFlukeTerminals() {
+	changed := false
+	for key := range m.sessions {
+		if strings.HasPrefix(key, "fluke:") {
+			if w := m.terminalFor(key); w != nil {
+				changed = changed || !w.hidden
+				w.hidden = true
+			}
+		}
+	}
+	if changed {
+		m.terminals.layout()
+	}
+}
+
 func (m *model) closePanels() {
+	m.switcher = nil
+	m.floating.focused = false
+	m.floating.gesture = nil
 	if !m.projects.busy {
 		m.projects.open = false
 	}
@@ -136,7 +189,10 @@ func (m *model) sessionSummary() (string, string) {
 		if m.preparing && !m.preparingWorker {
 			return uiText("INICIANDO"), uiText("Preparando la conversación…")
 		}
-		return uiText("SIN SESIÓN"), uiText("Enter inicia Fluke · F5 configura el modelo")
+		if len(m.state.Conversations[m.repo]) > 0 {
+			return localText("SAVED CONVERSATION", "CONVERSACIÓN GUARDADA"), localText("Send a message to resume Fluke", "Enviá un mensaje para retomar con Fluke")
+		}
+		return localText("READY TO START", "LISTO PARA EMPEZAR"), localText("Write a message and send it · F5 model", "Escribí y enviá tu pedido · F5 modelo")
 	}
 	if w.ProcessExited() {
 		return uiText("DESCONECTADO"), uiText("La sesión terminó · Enter vuelve a iniciar")
@@ -148,25 +204,32 @@ func (m *model) sessionSummary() (string, string) {
 	title, screen := w.agentSignals()
 	switch detectAgentState(s.Provider, title, screen) {
 	case "blocked":
+		if s.AutonomousStartup && startupTrustPrompt(s.Provider, m.repo, screen) {
+			return localText("CONNECTING", "CONECTANDO"), localText("Preparing autonomous access to this project", "Preparando acceso autónomo a este proyecto")
+		}
 		if limit := providerLimitMessage(s.Provider, screen); limit != "" {
 			return uiText("NECESITA TU ATENCIÓN"), limit
 		}
-		return uiText("NECESITA TU ATENCIÓN"), uiText("F3 abre la autorización o pregunta de la CLI")
+		return uiText("NECESITA TU ATENCIÓN"), localText("Connection opens the provider's permission request", "Conexión abre el permiso pendiente del proveedor")
 	case "working":
 		if !s.ReplyStarted.IsZero() {
-			return uiText("TRABAJANDO"), fmt.Sprintf(localText("Waiting for %s's reply · %ds · F3 opens the session", "Esperando la respuesta de %s · %ds · F3 abre la sesión"), s.Provider, int(time.Since(s.ReplyStarted).Seconds()))
+			return uiText("TRABAJANDO"), fmt.Sprintf(localText("Waiting for %s's reply · %ds", "Esperando la respuesta de %s · %ds"), s.Provider, int(time.Since(s.ReplyStarted).Seconds()))
 		}
 		return uiText("TRABAJANDO"), uiText("Fluke está procesando el pedido")
 	case "idle":
+		messages := m.state.Conversations[m.repo]
+		if len(messages) > 0 && messages[len(messages)-1].Delivery == "uncertain" {
+			return localText("DELIVERY NOT CONFIRMED", "ENVÍO SIN CONFIRMAR"), localText("Open Connection · no automatic resend", "Abrí Conexión · no se reenvía automáticamente")
+		}
 		if s.ChatSending {
 			return uiText("ENVIANDO"), uiText("Tu mensaje está guardado y pendiente de entrega")
 		}
 		if !s.ReplyStarted.IsZero() {
-			return localText("AWAITING REPLY", "ESPERANDO RESPUESTA"), localText("CLI is idle; F3 shows its reply or any permission request", "La CLI está en espera; F3 muestra su respuesta o permisos pendientes")
+			return localText("AWAITING REPLY", "ESPERANDO RESPUESTA"), localText("Waiting for Fluke's response", "Esperando la respuesta de Fluke")
 		}
 		return uiText("DISPONIBLE"), uiText("Fluke espera tu próximo mensaje")
 	default:
-		return uiText("ESPERANDO CLI"), uiText("F3 muestra el arranque y cualquier error de conexión")
+		return localText("CONNECTING", "CONECTANDO"), localText("Starting Fluke · Connection shows diagnostics", "Iniciando Fluke · Conexión muestra el diagnóstico")
 	}
 }
 

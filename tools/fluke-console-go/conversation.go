@@ -21,6 +21,7 @@ type orchestratorMessage struct {
 type chatSentResult struct {
 	Repo, RunID, Text string
 	Seq               uint64
+	ReportSeq         uint64
 	Err               error
 }
 
@@ -51,7 +52,7 @@ func (m *model) readOrchestratorMessages() {
 		var msg orchestratorMessage
 		err = json.NewDecoder(io.LimitReader(f, 16385)).Decode(&msg)
 		_ = f.Close()
-		text := conciseAgentMessage(msg.Message)
+		text := strings.TrimSpace(reviewText(msg.Message))
 		if err != nil || msg.Version != 1 || msg.RunID != s.RunID || msg.Seq <= s.ReportSeq || text == "" {
 			continue
 		}
@@ -128,11 +129,12 @@ func (m *model) sendChat(text string) tea.Cmd {
 	}
 	m.state = next
 	s.ChatSending = true
-	s.PendingChat = &chatSentResult{Repo: repo, RunID: runID, Seq: seq, Text: text}
+	s.PendingChat = &chatSentResult{Repo: repo, RunID: runID, Seq: seq, Text: text, ReportSeq: s.ReportSeq}
 	// Once durably queued, the transcript owns the message. Free the composer
 	// immediately so a slow CLI doesn't concatenate the next draft onto it.
 	if m.chatDraft[repo] == text {
 		m.chatDraft[repo] = ""
+		m.setChatPosition(0)
 	}
 	w.conversationPending.Store(m.chatDraft[repo] != "")
 	return tea.Batch(m.dispatchChats(), m.scheduleWorkerTick())
@@ -179,19 +181,19 @@ func (m *model) receiveChatSent(v chatSentResult) bool {
 	m.state = next
 	if current {
 		s.ChatWriting, s.ChatSending, s.PendingChat = false, false, nil
-		if v.Err == nil {
+		if v.Err == nil && s.ReportSeq == v.ReportSeq {
 			s.ReplyStarted = time.Now()
 		}
 	}
 	if v.Err != nil {
-		m.notice = uiText("Envío incierto. Revisá la sesión antes de reenviar.")
+		m.notice = localText("Delivery not confirmed. Open Connection; the message was not resent.", "Envío sin confirmar. Abrí Conexión; el mensaje no se reenvió.")
 		return true
 	}
 	if w := m.terminalFor("fluke:" + v.Repo); w != nil {
 		w.conversationPending.Store(m.chatDraft[v.Repo] != "")
 	}
 	m.refreshOrchestrators(false)
-	m.notice = "Mensaje enviado a Fluke."
+	m.notice = localText("Fluke received your message.", "Fluke recibió tu mensaje.")
 	return true
 }
 
@@ -234,7 +236,12 @@ func (m *model) dispatchChats() tea.Cmd {
 		msg := *s.PendingChat
 		provider := s.Provider
 		s.ChatWriting = true
-		commands = append(commands, func() tea.Msg { msg.Err = w.sendQueuedChat(provider, msg.Text); return msg })
+		commands = append(commands, func() tea.Msg {
+			body, _ := json.Marshal(msg.Text)
+			prompt := "New human message from Fluke chat. Reply through update.json before ending your turn, even for short messages. Message (JSON string):\n" + string(body)
+			msg.Err = w.sendQueuedChat(provider, prompt)
+			return msg
+		})
 	}
 	return tea.Batch(commands...)
 }

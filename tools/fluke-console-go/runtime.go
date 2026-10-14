@@ -91,6 +91,21 @@ func prepareTask(task Task, dir string) (string, error) {
 	return path, nil
 }
 func launchArgv(a AgentConfig, prompt string) ([]string, error) {
+	if a.Provider == "opencode" {
+		// ACP agents run behind this same binary acting as their terminal front-end.
+		if err := a.validateACP(); err != nil {
+			return nil, err
+		}
+		self, err := os.Executable()
+		if err != nil {
+			return nil, err
+		}
+		argv := []string{self, "--acp-worker", a.Provider}
+		if strings.TrimSpace(prompt) != "" {
+			argv = append(argv, "--", prompt)
+		}
+		return argv, nil
+	}
 	argv, err := a.argv()
 	if err != nil {
 		return nil, err

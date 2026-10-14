@@ -226,9 +226,9 @@ func testNativeWindowsFirstRun(t *testing.T, global, observeSignal bool) {
 	input("\r")
 	if global {
 		wait("YOUR PROJECTS")
-		wait("GLOBAL OVERVIEW")
+		wait("MISSION CONTROL")
 	} else {
-		wait("FLUKE FOLLOWS THE PROJECT")
+		wait("[Workers]")
 	}
 	input("\x11")
 	wait("Quit Fluke")
@@ -261,7 +261,7 @@ func testNativeWindowsFirstRun(t *testing.T, global, observeSignal bool) {
 	if global {
 		wait("YOUR PROJECTS")
 	} else {
-		wait("FLUKE FOLLOWS THE PROJECT")
+		wait("[Workers]")
 	}
 	if strings.Contains(screen.String(), "INITIAL SETUP") {
 		t.Fatal("completed setup reopened")

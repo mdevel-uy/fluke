@@ -47,6 +47,7 @@ type Task struct {
 	AgentRun       string           `json:"agent_run,omitempty"`
 	AgentProvider  string           `json:"agent_provider,omitempty"`
 	AgentConfig    *AgentConfig     `json:"agent_config,omitempty"`
+	WorkerConfig   *AgentConfig     `json:"worker_config,omitempty"`
 	AgentSeq       uint64           `json:"agent_seq,omitempty"`
 	AgentState     string           `json:"agent_state,omitempty"`
 	AgentMessage   string           `json:"agent_message,omitempty"`
@@ -61,6 +62,7 @@ type Task struct {
 	Integration    *integrationPlan `json:"integration,omitempty"`
 	Publication    *githubPRPlan    `json:"publication,omitempty"`
 	NativeSession  *NativeSession   `json:"native_session,omitempty"`
+	Metrics        TaskMetrics      `json:"metrics,omitempty"`
 }
 type Decision struct {
 	Number              int     `json:"number,omitempty"`
@@ -78,6 +80,8 @@ type Decision struct {
 	ProposedTitle       string  `json:"proposed_title,omitempty"`
 	ProposedGoal        bool    `json:"proposed_goal,omitempty"`
 	ProposedAcceptance  string  `json:"proposed_acceptance,omitempty"`
+	Assistance          bool    `json:"assistance,omitempty"`
+	AnsweredBy          string  `json:"answered_by,omitempty"`
 }
 type State struct {
 	Version              int                              `json:"version"`
@@ -86,11 +90,14 @@ type State struct {
 	Tasks                []Task                           `json:"tasks"`
 	Decisions            []Decision                       `json:"decisions"`
 	Orchestrator         *AgentConfig                     `json:"orchestrator"`
+	AutonomousFluke      bool                             `json:"autonomous_fluke,omitempty"`
 	Goals                map[string]ProjectGoal           `json:"goals,omitempty"`
 	Conversations        map[string][]ConversationMessage `json:"conversations,omitempty"`
 	PausedProjects       map[string]bool                  `json:"paused_projects,omitempty"`
 	OrchestratorSessions map[string]NativeSession         `json:"orchestrator_sessions,omitempty"`
 	Language             string                           `json:"language,omitempty"`
+	Theme                string                           `json:"theme,omitempty"`
+	ChatWindow           *chatWindowSettings              `json:"chat_window,omitempty"`
 	Setup                *setupProgress                   `json:"setup,omitempty"`
 }
 type Store struct {
@@ -119,6 +126,9 @@ func openStore(dir string) (*Store, State, error) {
 	}
 	if s.Version != 1 || s.MaxWorkers < 1 || s.MaxWorkers > 64 {
 		return fail(errors.New(uiText("versión o límite de workers inválido")))
+	}
+	if w := s.ChatWindow; w != nil && (w.X < 0 || w.Y < 0 || w.Width < 1 || w.Height < 1 || w.X > 10000 || w.Y > 10000 || w.Width > 10000 || w.Height > 10000) {
+		return fail(errors.New(localText("invalid saved chat window", "ventana de chat guardada inválida")))
 	}
 	if s.Language != "" && s.Language != "en" && s.Language != "es" || s.Setup != nil && (s.Setup.Step < 0 || s.Setup.Step > 6 || len(s.Setup.RepoDraft) > 4096 || strings.ContainsAny(s.Setup.RepoDraft, "\x00\r\n")) {
 		return fail(errors.New(localText("invalid first-run configuration", "configuración inicial inválida")))
@@ -158,6 +168,16 @@ func openStore(dir string) (*Store, State, error) {
 			return fail(errors.New(uiText("tarea inválida; se conserva el estado")))
 		}
 		ids[t.ID] = true
+		if t.Metrics.Runs < 0 || t.Metrics.Deliveries < 0 || t.Metrics.Reworks < 0 || t.Metrics.ObservedMS < 0 {
+			return fail(errors.New("invalid saved task metrics"))
+		}
+		seenUsage := map[string]bool{}
+		for _, usage := range t.Metrics.Usage {
+			if usage.RunID == "" || seenUsage[usage.RunID] || !validUsageNumbers(usage.WorkerUsage) || !filepath.IsLocal(usage.Source) {
+				return fail(errors.New("invalid saved usage"))
+			}
+			seenUsage[usage.RunID] = true
+		}
 		if t.BriefHash != "" && (len(t.BriefHash) != 64 || !validGitHash(t.BriefHash)) {
 			return fail(errors.New("identidad de spec inválida"))
 		}
@@ -180,6 +200,11 @@ func openStore(dir string) (*Store, State, error) {
 		}
 		if t.AgentConfig != nil {
 			if _, err := t.AgentConfig.argv(); err != nil {
+				return fail(err)
+			}
+		}
+		if t.WorkerConfig != nil {
+			if err := validateNativeSessionConfig(*t.WorkerConfig); err != nil {
 				return fail(err)
 			}
 		}
@@ -218,6 +243,12 @@ func openStore(dir string) (*Store, State, error) {
 	}
 	for i := range s.Decisions {
 		d := s.Decisions[i]
+		if d.AnsweredBy != "" && d.AnsweredBy != "human" && d.AnsweredBy != "fluke" {
+			return fail(errors.New("invalid response author"))
+		}
+		if d.Assistance && (d.TaskID == "" || d.RunID == "" || d.Seq == 0 || d.ProposedTitle != "") {
+			return fail(errors.New("invalid technical assistance request"))
+		}
 		if d.Supersedes != 0 {
 			if d.Supersedes < 1 || d.Supersedes > i || d.Answer == nil {
 				return fail(errors.New(localText("invalid decision correction", "corrección de decisión inválida")))
@@ -297,8 +328,11 @@ func (a AgentConfig) argv() ([]string, error) {
 	if strings.TrimSpace(a.Executable) == "" {
 		return nil, errors.New(uiText("indicá el ejecutable"))
 	}
-	if a.Provider != "codex" && a.Provider != "claude" && a.Provider != "custom" {
+	if a.Provider != "codex" && a.Provider != "claude" && a.Provider != "custom" && a.Provider != "opencode" {
 		return nil, errors.New(uiText("proveedor inválido"))
+	}
+	if err := a.validateACP(); err != nil {
+		return nil, err
 	}
 	args := append([]string{}, a.Arguments...)
 	if a.Provider == "custom" && a.Model != "" {

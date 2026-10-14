@@ -93,11 +93,11 @@ func TestEnglishConversationPreservesUserSpanish(t *testing.T) {
 	if !strings.Contains(rendered, userText) {
 		t.Fatalf("user-authored Spanish changed: %q", rendered)
 	}
-	if !strings.Contains(rendered, "Talk to Fluke") || strings.Contains(rendered, "Hablá con Fluke") {
+	if !strings.Contains(rendered, "Tell Fluke what you need") || strings.Contains(rendered, "Contale a Fluke") {
 		t.Fatalf("conversation chrome is not English: %q", rendered)
 	}
 	state, hint := m.sessionSummary()
-	if state != "NO SESSION" || !strings.Contains(hint, "Enter starts Fluke") {
+	if state != "SAVED CONVERSATION" || !strings.Contains(hint, "Send a message to resume") {
 		t.Fatalf("session summary is not English: %q / %q", state, hint)
 	}
 }

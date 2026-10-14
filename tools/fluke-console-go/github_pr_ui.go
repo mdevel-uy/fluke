@@ -256,7 +256,7 @@ func (m *model) publicationKey(v tea.KeyPressMsg) tea.Cmd {
 			p.editPublication(v.Text)
 		}
 		p.lines = nil
-		p.followPublicationCaret(m.width, m.workspaceHeight())
+		p.followPublicationCaret(m.reviewDimsW(), m.reviewDimsH())
 		return nil
 	}
 	if key == "enter" && p.publication != nil {
@@ -264,7 +264,7 @@ func (m *model) publicationKey(v tea.KeyPressMsg) tea.Cmd {
 	}
 	if key == "e" && p.publication != nil && !p.publication.Complete && !p.publicationLoading {
 		p.publicationEditing, p.lines, p.scroll = 1, nil, 0
-		p.followPublicationCaret(m.width, m.workspaceHeight())
+		p.followPublicationCaret(m.reviewDimsW(), m.reviewDimsH())
 		m.notice = uiText("Editá el título o descripción. Ctrl+S vuelve a la vista previa; luego Enter publica.")
 		return nil
 	}
@@ -274,5 +274,5 @@ func (m *model) publicationKey(v tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 	}
-	return p.key(key, m.width, m.workspaceHeight())
+	return p.key(key, m.reviewDimsW(), m.reviewDimsH())
 }

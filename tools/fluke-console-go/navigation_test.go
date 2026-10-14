@@ -47,9 +47,14 @@ func TestGlobalNavigationEscapesEditorsAndReview(t *testing.T) {
 	if m.view != 1 || m.config {
 		t.Fatal("Alt+2 no funciona como alternativa a F2")
 	}
-	if m.View().MouseMode != tea.MouseModeNone {
-		t.Fatal("la interfaz captura la selección de texto del terminal")
+	if m.View().MouseMode != tea.MouseModeAllMotion {
+		t.Fatal("la navegación perdió el mouse")
 	}
+	m.globalKey("ctrl+b")
+	if m.View().MouseMode != tea.MouseModeNone {
+		t.Fatal("Ctrl+B no libera la selección nativa")
+	}
+	m.globalKey("ctrl+b")
 	m.globalKey("ctrl+x")
 	if m.View().MouseMode != tea.MouseModeAllMotion {
 		t.Fatal("gestión de ventanas perdió el mouse")

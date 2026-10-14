@@ -149,6 +149,14 @@ func (p *reviewPanel) content(width int) []string {
 		if strings.TrimSpace(p.data.Diff) == "" {
 			plain += uiText("Sin contenido para mostrar.")
 		}
+		outcome := localText("ACCEPTANCE CRITERIA\n", "CRITERIO DE ACEPTACIÓN\n") + reviewText(p.task.Acceptance)
+		if p.task.AgentMessage != "" {
+			outcome += localText("\n\nWORKER REPORT\n", "\n\nREPORTE DEL WORKER\n") + reviewText(p.task.AgentMessage)
+		}
+		if len(p.task.AgentEvidence) > 0 {
+			outcome += localText("\nReported evidence: ", "\nEvidencia reportada: ") + reviewText(strings.Join(p.task.AgentEvidence, ", "))
+		}
+		plain = outcome + "\n\n" + plain
 	}
 	p.lines = nil
 	for _, line := range strings.Split(plain, "\n") {

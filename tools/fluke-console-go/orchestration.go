@@ -30,18 +30,24 @@ type orchestratorSession struct {
 	Hash                 [32]byte
 	Notify, Sending      bool
 	IdleSince            time.Time
+	AutonomousStartup    bool
+	TrustSending         bool
+	TrustSeenAt          time.Time
+	TrustAttempts        int
 }
 type orchestratorCommand struct {
-	Version    int      `json:"version"`
-	RunID      string   `json:"run_id"`
-	Seq        uint64   `json:"seq"`
-	Action     string   `json:"action"`
-	GoalID     string   `json:"goal_id,omitempty"`
-	TaskID     string   `json:"task_id,omitempty"`
-	Question   string   `json:"question,omitempty"`
-	Title      string   `json:"title,omitempty"`
-	Acceptance string   `json:"acceptance,omitempty"`
-	DependsOn  []string `json:"depends_on,omitempty"`
+	Version        int      `json:"version"`
+	RunID          string   `json:"run_id"`
+	Seq            uint64   `json:"seq"`
+	Action         string   `json:"action"`
+	GoalID         string   `json:"goal_id,omitempty"`
+	TaskID         string   `json:"task_id,omitempty"`
+	Question       string   `json:"question,omitempty"`
+	Title          string   `json:"title,omitempty"`
+	Acceptance     string   `json:"acceptance,omitempty"`
+	DependsOn      []string `json:"depends_on,omitempty"`
+	DecisionNumber int      `json:"decision_number,omitempty"`
+	Answer         string   `json:"answer,omitempty"`
 }
 type orchestratorAck struct {
 	Version int    `json:"version"`
@@ -90,7 +96,8 @@ func (m *model) orchestratorContext(repo string) any {
 		BlockedDependencies map[string]string          `json:"blocked_dependencies,omitempty"`
 		Language            string                     `json:"language"`
 		PullRequests        map[string]*githubPRStatus `json:"pull_requests,omitempty"`
-	}{repo, m.state.Goals[repo], m.state.Conversations[repo], tasks, decisions, m.state.MaxWorkers, m.liveWorkers(), m.state.PausedProjects[repo], blocked, m.state.Language, prs}
+		Portfolio           []projectMetrics           `json:"portfolio"`
+	}{repo, m.state.Goals[repo], m.state.Conversations[repo], tasks, decisions, m.state.MaxWorkers, m.liveWorkers(), m.state.PausedProjects[repo], blocked, m.state.Language, prs, m.portfolioMetrics()}
 }
 func prepareOrchestrator(repo string, snapshot any) (string, string, error) {
 	var random [16]byte
@@ -136,13 +143,17 @@ func prepareOrchestrator(repo string, snapshot any) (string, string, error) {
 	body := fmt.Sprintf(`# Orquestador de Fluke
 
 Tu sesión es %s. El objetivo principal es acompañar al humano: acordar un objetivo, convertirlo en un plan y coordinar su ejecución. Las terminales son una herramienta interna, no el centro del producto. Todos los archivos de este contrato están en esta misma carpeta y excluidos de Git.
-Antes de terminar cada turno, escribí update.json en esta misma carpeta usando temporal y rename. Formato: {"version":1,"run_id":"%s","seq":1,"message":"Tu mensaje al humano"}. Conservá run_id, incrementá seq en cada mensaje. message es la respuesta conversacional para la pantalla de Fluke. Mostrá solo lo importante: qué cambió, qué está bloqueado, qué necesita del humano y el próximo paso. Usá 2–6 líneas y como máximo 1200 caracteres; omití los puntos que no aporten. No incluyas comandos, transcripciones de herramientas, tokens, razonamiento interno ni narración de cada paso. No repitas el mismo estado ni generes mensajes por cada herramienta. Escribilo también cuando necesites esperar: sin ese archivo el humano solo verá actividad del sistema. Las actualizaciones no necesitan un ack.
+Antes de terminar cada turno, escribí update.json en esta misma carpeta usando temporal y rename. Formato: {"version":1,"run_id":"%s","seq":1,"message":"Tu mensaje al humano"}. Conservá run_id, incrementá seq en cada mensaje. message es la respuesta conversacional para la pantalla de Fluke. Mostrá solo lo importante: qué cambió, qué está bloqueado, qué necesita del humano y el próximo paso. Respondé con la extensión necesaria para resolver el pedido: un brief o una explicación pueden requerir varios párrafos. No recortes criterios de aceptación ni preguntas. Mantené cada mensaje debajo de 12000 bytes UTF-8 para que entre en el canal; dividí el trabajo en turnos cuando haga falta. No incluyas comandos, transcripciones de herramientas, tokens, razonamiento interno ni narración de cada paso. No repitas el mismo estado ni generes mensajes por cada herramienta. Escribilo también cuando necesites esperar: sin ese archivo el humano solo verá actividad del sistema. Las actualizaciones no necesitan un ack.
 Para saludos o charla, respondé enseguida en update.json. No explores el repositorio ni propongas tareas hasta que el pedido lo necesite. Si vas a hacer un análisis largo, escribí primero una confirmación breve en ese canal.
 Si CODEX_SESSION_ID (o CODEX_THREAD_ID) está presente, obtené esa variable exacta con una herramienta y agregá native_session_id con su UUID a update.json para recuperar el historial. Omitilo si no existe; no inventes IDs ni vuelques otras variables de entorno.
 
 En conversation, los mensajes humanos con delivery=pending o uncertain no son nuevas órdenes confirmadas: esperá su entrega o pedí aclaración.
 
-Leé context.json: incluye solamente las tareas y decisiones de este repositorio y el cupo global de workers.
+Leé context.json: incluye las tareas y decisiones de este repositorio, portfolio con el avance medido de todos los proyectos y el cupo global. Tu autoridad de escritura sigue limitada a este repositorio. Las métricas son evidencia, no garantías: aceptación sin correcciones no mide precisión semántica; consumo reportado no es facturación verificada.
+
+Guiá el brief como una desarrolladora que acompaña al humano. Primero distinguí app nueva de funcionalidad en app existente. Entendé usuario, problema, recorrido principal, restricciones y definición de terminado. Inspeccioná lo existente cuando sea relevante; separá hechos de supuestos. Preguntá solo lo que cambie el resultado y agrupá las dudas. Proponé un brief con objetivo, alcance incluido/excluido, criterios observables y verificación. No pidas al humano que escriba comandos ni IDs: vos traducís la conversación al protocolo.
+Con el objetivo aprobado, armá tareas completas y pequeñas que un worker pueda terminar, con contexto, aceptación verificable y dependencias reales. Explicá qué está hecho, qué falta y cuál es el próximo paso. Priorizá desbloquear workers y entregas que habilitan dependencias antes de abrir trabajo adicional. No confundas turno terminado, ready, aceptación e integración.
+Cuando un worker pide ayuda técnica (assistance=true), leé su reporte, brief, evidencia y decisiones previas. Usá answer_worker para darle una solución concreta dentro del alcance. Si falta una decisión de producto, credencial o autorización, usá escalate_worker y explicá al humano qué necesita decidir. Si vuelve el mismo bloqueo sin progreso, cambiá el enfoque o escalá; no ordenes reintentos idénticos. Nunca apruebes permisos nativos por el usuario.
 Sos el punto de conversación principal. Los workers ejecutan las tareas en worktrees aislados; no implementes sus cambios en el checkout principal.
 
 Para pedir una acción, escribí command.json usando un temporal en esta carpeta y renombralo al destino. Ejemplo:
@@ -154,6 +165,8 @@ Acciones permitidas:
 - queue_task: task_id identifica una tarea ya autorizada del contexto. Fluke inicia el worker cuando haya cupo global. El worker se hace cargo de implementación, validación y entrega. Una tarea running o awaiting_review no se reinicia.
 - unqueue_task: retira una tarea pendiente de la cola.
 - stop_task: detiene un worker de este repositorio; conserva sus cambios para revisión.
+- answer_worker: task_id, decision_number (number global de context.json) y answer responden un pedido técnico assistance=true vigente de ese worker. Se guarda la fuente Fluke y se entrega por el canal de respuestas cuando la CLI esté libre. No responde decisiones humanas, no reanuda pausas ni sustituye instrucciones pendientes.
+- escalate_worker: task_id y decision_number pasan ese mismo pedido técnico a revisión humana cuando no podés resolverlo dentro del alcance. Explicá la causa en update.json; no dupliques la pregunta con ask.
 - ask: question contiene una pregunta de producto/alcance para el humano.
 - propose_task: title y acceptance proponen una tarea nueva. Fluke pide aprobación humana antes de crearla o iniciarla. No des por aprobado un cambio de alcance.
 
@@ -193,6 +206,8 @@ func readOrchestratorCommand(dir string) (orchestratorCommand, error) {
 func (m *model) applyOrchestratorCommand(repo string, c orchestratorCommand) (string, error) {
 	next := m.state
 	switch c.Action {
+	case "answer_worker", "escalate_worker":
+		return m.resolveWorkerHelp(repo, c)
 	case "create_task":
 		goal := next.Goals[repo]
 		if goal.ID == "" || c.GoalID != goal.ID {
@@ -333,7 +348,7 @@ func (m *model) refreshOrchestrators(notify bool) {
 func (m *model) wakeOrchestrators() tea.Cmd {
 	var commands []tea.Cmd
 	for repo, s := range m.orchestration {
-		if !s.Notify || s.Sending {
+		if !s.Notify || s.Sending || s.ChatSending || !s.ReplyStarted.IsZero() {
 			continue
 		}
 		w := m.terminalFor("fluke:" + repo)

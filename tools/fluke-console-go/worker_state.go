@@ -19,16 +19,18 @@ import (
 
 type workerTick struct{}
 type workerReport struct {
-	Version             int      `json:"version"`
-	RunID               string   `json:"run_id"`
-	Seq                 uint64   `json:"seq"`
-	Status              string   `json:"status"`
-	Message             string   `json:"message"`
-	Question            string   `json:"question,omitempty"`
-	Evidence            []string `json:"evidence,omitempty"`
-	ReviewSeq           uint64   `json:"review_feedback_seq,omitempty"`
-	HumanInstructionSeq uint64   `json:"human_instruction_seq,omitempty"`
-	NativeSessionID     string   `json:"native_session_id,omitempty"`
+	Version             int          `json:"version"`
+	RunID               string       `json:"run_id"`
+	Seq                 uint64       `json:"seq"`
+	Status              string       `json:"status"`
+	Message             string       `json:"message"`
+	Question            string       `json:"question,omitempty"`
+	Evidence            []string     `json:"evidence,omitempty"`
+	ReviewSeq           uint64       `json:"review_feedback_seq,omitempty"`
+	HumanInstructionSeq uint64       `json:"human_instruction_seq,omitempty"`
+	NativeSessionID     string       `json:"native_session_id,omitempty"`
+	HelpRequested       bool         `json:"help_requested,omitempty"`
+	Usage               *WorkerUsage `json:"usage,omitempty"`
 }
 
 func atomicJSON(path string, value any) error {
@@ -104,7 +106,14 @@ func prepareWorkerContract(worktree, taskID string) (string, error) {
 	answer, _ := json.Marshal(workerSignalPath(worktree, taskID, runID, "answer"))
 	body := fmt.Sprintf(`# Contrato de comunicación con Fluke
 
-Leé .fluke-task.md. Sos un único worker responsable de implementar, verificar y entregar esta tarea. No cambies el alcance ni hagas merge.
+Leé .fluke-task.md y las instrucciones del repositorio antes de actuar. Sos el único responsable de llevar esta tarea completa desde el análisis hasta una entrega verificable. No cambies el alcance ni hagas merge, push o publicación.
+
+Método de trabajo:
+1. Convertí la aceptación en una lista concreta de resultados; inspeccioná implementación, callers, pruebas y convenciones existentes. Reutilizá lo que ya existe. En una sesión retomada reconciliá archivos y decisiones antes de repetir acciones.
+2. Resolvé decisiones técnicas rutinarias por tu cuenta dentro del alcance. Implementá el recorrido completo, incluidos errores, estados vacíos, accesibilidad y tamaños pequeños cuando aplique. No te detengas en un plan ni dejes al humano el trabajo autorizado.
+3. Verificá cada criterio con las comprobaciones permitidas por el repositorio. Si prohíbe builds/tests, respetalo y describí qué evidencia sí pudiste obtener. Nunca declares una prueba pasada si no la ejecutaste.
+4. Ante un fallo, investigá la causa y probá una corrección concreta. Si seguís bloqueado, explicá qué intentaste, evidencia, impacto y el próximo paso que necesitás. Pedí ayuda técnica a Fluke con blocked + help_requested=true + question. No repitas indefinidamente la misma acción ni esperes en bucles de shell.
+5. Antes de finalizar, revisá el diff y cada criterio. Entregá un resumen de resultado, verificaciones con sus resultados, archivos de evidencia y límites restantes. Un bloqueo no es una entrega ready. Terminá el turno después de ready o de pedir ayuda; Fluke te despertará con contexto nuevo.
 
 Reportá en el archivo local excluido de Git %s (ruta expresada como JSON, decodificar antes de usarla).
 Escribí un archivo temporal en la misma carpeta y renombralo al destino para evitar lecturas parciales. No uses stdout como canal de estado.
@@ -114,8 +123,11 @@ Formato inicial:
 Conservá version=1 y run_id. Incrementá seq en cada reporte, incluso después de una nueva intervención humana.
 - working: estás trabajando; message describe brevemente el avance.
 - needs_response: necesitás una decisión de producto o alcance; question contiene una pregunta concreta. Reportala en el archivo, hacé la pregunta como mensaje final y terminá el turno. No uses AskUserQuestion, request_user_input ni un diálogo interactivo de preguntas: Fluke recoge la respuesta en su panel. No adivines la respuesta.
-- blocked: no podés continuar; message explica la causa. Si precisás una decisión, incluí question.
+- blocked: no podés continuar; message explica causa, intentos y evidencia. Para ayuda técnica del orquestador incluí help_requested=true y question con el paso que necesitás. Para decisiones de producto/alcance usá needs_response; no delegues aprobaciones humanas ni permisos a Fluke.
 - ready: entrega para revisión humana, nunca aprobación. message resume cambios, verificaciones y limitaciones; evidence es una lista de rutas relativas a archivos reales del worktree que respaldan la entrega. Reportá ready solo después de verificar la aceptación.
+
+Consumo opcional: usage={"input_tokens":123,"output_tokens":45,"cost_usd":0.01,"source":"usage.json"} contiene totales acumulados SOLO de esta ejecución run_id, respaldados por un archivo real del worktree con datos del proveedor. Si no tenés mediciones fiables o no podés separar esta ejecución de una sesión retomada, omití usage. No estimes tokens ni inventes tarifas; omití cost_usd si la CLI no informa dólares. Los totales no pueden disminuir. Fluke los muestra como reportados, no como facturación verificada.
+Si una respuesta tiene answered_by="fluke", es orientación técnica del orquestador; no es una aprobación humana. Validá la solución contra el brief y reportá otra vez si no destraba la tarea.
 
 Al comenzar, si está presente CODEX_SESSION_ID (o CODEX_THREAD_ID), obtené esa variable exacta mediante una herramienta local y agregá native_session_id con su UUID en los reportes. Permite recuperar tu historial al reiniciar. Omitilo si no existe; no inventes IDs ni vuelques otras variables de entorno.
 
@@ -161,6 +173,14 @@ func readWorkerReport(path string, task Task) (workerReport, error) {
 	if strings.TrimSpace(report.Message) == "" {
 		return report, errors.New("falta resumen")
 	}
+	if report.HelpRequested && (report.Status != "blocked" || strings.TrimSpace(report.Question) == "") {
+		return report, errors.New("technical help requires a blocked report and a concrete question")
+	}
+	if report.Usage != nil {
+		if err := validateWorkerUsage(*report.Usage, task); err != nil {
+			return report, err
+		}
+	}
 	switch report.Status {
 	case "working", "blocked":
 	case "needs_response":
@@ -202,6 +222,9 @@ func readWorkerReport(path string, task Task) (workerReport, error) {
 // not proof of success. Only inspect current bottom rows for approval dialogs.
 // ponytail: a small conservative fallback; use native hooks for CLIs without OSC titles.
 func detectAgentState(provider, title, screen string) string {
+	if provider == "opencode" {
+		return acpTitleState(title)
+	}
 	if provider != "codex" && provider != "claude" {
 		return "unknown"
 	}
@@ -301,7 +324,13 @@ func (m *model) observeWorkers(readReports bool) {
 			}
 			t.AgentSeq, t.AgentState, t.AgentMessage = report.Seq, report.Status, report.Message
 			t.AgentEvidence = report.Evidence
+			if report.Usage != nil {
+				t.Metrics = t.Metrics.withUsage(task.AgentRun, *report.Usage)
+			}
 			if report.Status == "ready" {
+				if task.Status != "awaiting_review" {
+					t.Metrics.Deliveries++
+				}
 				t.Status = "awaiting_review"
 			} else {
 				t.Status = "running"
@@ -314,12 +343,13 @@ func (m *model) observeWorkers(readReports bool) {
 					d := &next.Decisions[j]
 					if d.TaskID == task.ID && d.RunID == task.AgentRun && d.Answer == nil && d.Question == question {
 						d.Seq = report.Seq
+						d.Assistance = report.HelpRequested
 						found = true
 						break
 					}
 				}
 				if !found {
-					next.Decisions = append(next.Decisions, Decision{Repo: task.Repo, TaskID: task.ID, RunID: task.AgentRun, Seq: report.Seq, Question: question})
+					next.Decisions = append(next.Decisions, Decision{Repo: task.Repo, TaskID: task.ID, RunID: task.AgentRun, Seq: report.Seq, Question: question, Assistance: report.HelpRequested})
 				}
 			}
 		} else {

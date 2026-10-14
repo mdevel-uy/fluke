@@ -49,6 +49,7 @@ func (m *model) requestTaskChanges(id, feedback string) tea.Cmd {
 		next := m.state
 		next.Tasks = append([]Task{}, next.Tasks...)
 		t := &next.Tasks[i]
+		t.Metrics.Reworks++
 		t.AcceptedTree, t.Integration = "", nil
 		t.ReviewFeedback, t.AgentMessage, t.AgentState = feedback, uiText("Cambios pedidos por el usuario: ")+feedback, "unknown"
 		t.Status, t.Queued = "interrupted", true

@@ -23,7 +23,15 @@ func (m *model) attentionItems() []attentionItem {
 			continue
 		}
 		decisions[key], sources[source] = true, true
-		items = append(items, attentionItem{Kind: "decision", Repo: d.Repo, TaskID: d.TaskID, DecisionIndex: i, Summary: attentionSummary(d.Question)})
+		summary := attentionSummary(d.Question)
+		if d.Assistance {
+			label := localText("Open Fluke's chat for help · ", "Abrí el chat de Fluke para recibir ayuda · ")
+			if m.sessionAlive("fluke:" + d.Repo) {
+				label = localText("Fluke is coordinating help · ", "Fluke coordina la ayuda · ")
+			}
+			summary = label + summary
+		}
+		items = append(items, attentionItem{Kind: "decision", Repo: d.Repo, TaskID: d.TaskID, DecisionIndex: i, Summary: summary})
 	}
 	for _, t := range m.state.Tasks {
 		if t.Status == "awaiting_review" && !t.Paused {
@@ -103,6 +111,7 @@ func (m *model) openAttention(index int) bool {
 	item := items[index]
 	m.closePanels()
 	m.home = false
+	m.insights = false
 	m.repo, m.selected, m.pane = item.Repo, 0, 0
 	switch item.Kind {
 	case "decision":

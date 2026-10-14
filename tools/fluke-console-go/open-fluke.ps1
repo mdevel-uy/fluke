@@ -3,6 +3,8 @@ param(
     [string]$StateDir = (Join-Path $env:LOCALAPPDATA 'fluke-console'),
     [switch]$Here,
     [switch]$Setup,
+	[switch]$Demo,
+	[switch]$Autonomous,
     [ValidateSet('', 'en', 'es')][string]$Language = ''
 )
 
@@ -14,6 +16,8 @@ if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) {
 $appArguments = @('--state-dir', $StateDir)
 if ($Repo) { $appArguments += @('--repo', (Resolve-Path -LiteralPath $Repo).Path) }
 if ($Setup) { $appArguments += '--setup' }
+if ($Demo) { $appArguments += '--demo' }
+if ($Autonomous) { $appArguments += '--autonomous' }
 if ($Language) { $appArguments += @('--lang', $Language) }
 if ($Here) {
     & $binary @appArguments
