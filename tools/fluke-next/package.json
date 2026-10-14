@@ -1,0 +1,17 @@
+{
+  "name": "fluke-next",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Fluke orchestration on the Pi agent runtime",
+  "engines": { "node": ">=22.19.0" },
+  "bin": { "fluke-next": "./bin/fluke.mjs" },
+  "scripts": {
+    "start": "node bin/fluke.mjs",
+    "test": "node --experimental-strip-types --test src/*.test.ts"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "1.2.0",
+    "typebox": "1.3.27"
+  }
+}
