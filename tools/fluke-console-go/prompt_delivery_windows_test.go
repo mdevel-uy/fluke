@@ -103,7 +103,10 @@ func TestHiddenFlukeDoesNotOccupyWorkerWorkspace(t *testing.T) {
 			t.Fatal("Tab focused hidden Fluke")
 		}
 	}
-	if m.terminals.Windows[1].h != 30 || m.terminals.Windows[2].h != 30 {
+	// The two visible workers share the whole area; the hidden window gets no tile.
+	m.terminals.layout()
+	a, b := m.terminals.Windows[1], m.terminals.Windows[2]
+	if a.w*a.h+b.w*b.h != m.terminals.width*m.terminals.height {
 		t.Fatal("hidden Fluke still reserves space")
 	}
 	m.focus("fluke:" + m.repo)

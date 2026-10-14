@@ -128,7 +128,7 @@ func (d *demoModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch v := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = v.Width, v.Height
-		m.terminals.Update(tea.WindowSizeMsg{Width: v.Width, Height: m.workspaceHeight()})
+		m.terminals.Update(tea.WindowSizeMsg{Width: v.Width - m.sessionsPanelWidth(), Height: m.workspaceHeight()})
 		d.paintWorkers()
 	case tea.KeyPressMsg:
 		key := v.String()
@@ -262,21 +262,29 @@ func (d *demoModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.home && v.Y-m.headerRows() < 6 {
 			return d, nil
 		}
+		if m.clickSessions(v.Mouse()) {
+			m.terminals.layout()
+			d.paintWorkers()
+			return d, nil
+		}
 		m.clickWorkspace(v.Mouse())
 		if m.view == 2 && v.Y >= m.headerRows() && v.Y < m.height-m.footerRows() {
 			v.Y -= m.headerRows()
+			v.X -= m.sessionsPanelWidth()
 			m.terminals.Update(v)
 			d.paintWorkers()
 		}
 	case tea.MouseMotionMsg:
 		if m.view == 2 && !m.config {
 			v.Y -= m.headerRows()
+			v.X -= m.sessionsPanelWidth()
 			m.terminals.Update(v)
 			d.paintWorkers()
 		}
 	case tea.MouseReleaseMsg:
 		if m.view == 2 && !m.config {
 			v.Y -= m.headerRows()
+			v.X -= m.sessionsPanelWidth()
 			m.terminals.Update(v)
 			d.paintWorkers()
 		}

@@ -936,8 +936,9 @@ func (m *model) View() tea.View {
 		body = m.projectView(w, bodyH)
 	case 2:
 		if len(m.terminals.visibleWindows()) > 0 {
+			m.fitTerminals()
 			terminal = m.terminals.View()
-			body = terminal.Content
+			body = m.sessionsView(terminal.Content, w, bodyH)
 		} else {
 			body = frame(uiText("SESIONES / TERMINALES"), localText("No worker terminals open.\n\nTalk to Fluke in F2 to plan and start work.\nFluke runs in the background.", "No hay terminales de workers abiertas.\n\nHablá con Fluke en F2 para planificar e iniciar tareas.\nFluke funciona en segundo plano."), w, bodyH, cyan, false)
 		}
@@ -988,6 +989,7 @@ func (m *model) View() tea.View {
 	if m.view == 2 && !m.projects.open && !m.config && !m.githubOpen && !m.review.open && !m.quitting && m.command == nil && terminal.Cursor != nil {
 		cursor := *terminal.Cursor
 		cursor.Y += m.headerRows()
+		cursor.X += m.sessionsPanelWidth()
 		view.Cursor = &cursor
 	}
 	return view

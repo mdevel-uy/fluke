@@ -81,6 +81,7 @@ type model struct {
 	connHealth                         map[string]providerHealth
 	connGeneration                     uint64
 	connSelected                       int
+	sessionHits                        []sessionHit
 	modelChoices                       []string
 	dependencyChecks                   map[string]string
 	dependencyHash                     [32]byte
@@ -98,6 +99,7 @@ func newModel(store *Store, state State, repo string) *model {
 	applyTheme(state.Theme)
 	t := newWindowManager(100, 30)
 	m := &model{store: store, state: state, repo: repo, terminals: t, sessions: map[string]string{}, chatDraft: map[string]string{}, pane: 1, width: 100, height: 36, notice: uiText("Contame qué querés lograr. Fluke prepara el plan y coordina el trabajo.")}
+	t.titleFor = m.windowTitle
 	m.home = repo == ""
 	if m.home {
 		m.pane = 0
@@ -766,7 +768,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.terminals.endMouse()
 		m.width = v.Width
 		m.height = v.Height
-		return m, m.forward(tea.WindowSizeMsg{Width: v.Width, Height: m.workspaceHeight()})
+		return m, m.forward(tea.WindowSizeMsg{Width: v.Width - m.sessionsPanelWidth(), Height: m.workspaceHeight()})
 	case dependencyCheckResult:
 		m.dependencyChecking = false
 		if v.Hash == dependencyStateHash(m.state) {
@@ -1444,6 +1446,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if handled, cmd := m.clickShell(v.Mouse()); handled {
 			return m, cmd
 		}
+		if m.clickSessions(v.Mouse()) {
+			return m, nil
+		}
 		if handled, cmd := m.clickChatAction(v.Mouse()); handled {
 			return m, cmd
 		}
@@ -1468,6 +1473,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		v.Y -= m.headerRows()
+		v.X -= m.sessionsPanelWidth()
 		return m, m.forward(v)
 	case tea.MouseReleaseMsg:
 		if m.floatingMouse(v.Mouse(), "release") {
@@ -1477,6 +1483,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		v.Y -= m.headerRows()
+		v.X -= m.sessionsPanelWidth()
 		return m, m.forward(v)
 	case tea.MouseMotionMsg:
 		if m.floatingMouse(v.Mouse(), "motion") {
@@ -1486,6 +1493,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		v.Y -= m.headerRows()
+		v.X -= m.sessionsPanelWidth()
 		return m, m.forward(v)
 	case tea.MouseWheelMsg:
 		if m.floatingMouse(v.Mouse(), "wheel") {
@@ -1514,6 +1522,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		v.Y -= m.headerRows()
+		v.X -= m.sessionsPanelWidth()
 		return m, m.forward(v)
 	}
 	cmd := m.forward(msg)

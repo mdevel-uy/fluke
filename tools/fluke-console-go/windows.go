@@ -116,6 +116,8 @@ type windowManager struct {
 	lastError           error
 	zoomed              bool
 	restoreBounds       map[string]rectangle
+	// titleFor lets the host describe a window (task, state, model) in its title bar.
+	titleFor func(*terminalWindow) string
 }
 
 func newWindowManager(w, h int) *windowManager {
@@ -282,12 +284,16 @@ func (m *windowManager) ToggleTiling() {
 	m.layout()
 }
 
+// tileColumns: side by side whenever each window keeps a usable width, so the
+// mosaic is horizontal first; a short last row stretches to fill the area.
+func (m *windowManager) tileColumns(n int) int {
+	const minWidth = 50
+	return max(1, min(n, m.width/minWidth))
+}
+
 func (m *windowManager) singleWindow() bool {
 	n := len(m.visibleWindows())
-	cols := 1
-	if n > 1 && m.width >= 64 {
-		cols = 2
-	}
+	cols := m.tileColumns(n)
 	return m.zoomed || m.tiled && (m.width < 64 || m.height/max(1, (n+cols-1)/cols) < 8)
 }
 
@@ -328,17 +334,16 @@ func (m *windowManager) layout() {
 		return
 	}
 	if m.tiled {
-		cols := 1
-		if n > 1 && m.width >= 64 {
-			cols = 2
-		}
+		cols := m.tileColumns(n)
 		rows := (n + cols - 1) / cols
 		for i, index := range visible {
 			w := m.Windows[index]
-			x := i % cols * m.width / cols
-			y := i / cols * m.height / rows
-			right := (i%cols + 1) * m.width / cols
-			bottom := (i/cols + 1) * m.height / rows
+			row, col := i/cols, i%cols
+			in := min(cols, n-row*cols) // windows in this row: a short row fills the width
+			x := col * m.width / in
+			y := row * m.height / rows
+			right := (col + 1) * m.width / in
+			bottom := (row + 1) * m.height / rows
 			w.x = x
 			w.y = y
 			w.w = right - x
@@ -599,6 +604,11 @@ func (m *windowManager) View() tea.View {
 			cursor = c
 		}
 		title := w.Name
+		if m.titleFor != nil {
+			if described := m.titleFor(w); described != "" {
+				title = described
+			}
+		}
 		if m.singleWindow() {
 			visible := m.visibleWindows()
 			for n, index := range visible {

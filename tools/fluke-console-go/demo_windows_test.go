@@ -87,7 +87,8 @@ func TestDemoNavigationAndIsolation(t *testing.T) {
 	w := m.terminals.Windows[m.terminals.FocusedWindow]
 	w.x, w.y, w.w, w.h = 2, 2, 55, 14
 	m.terminals.layout()
-	x, y := w.x+5, w.y+m.headerRows()+1
+	// Window coordinates are relative to the area right of the sessions panel.
+	x, y := m.sessionsPanelWidth()+w.x+5, w.y+m.headerRows()+1
 	d.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft})
 	d.Update(tea.MouseMotionMsg{X: x + 8, Y: y + 3, Button: tea.MouseLeft})
 	d.Update(tea.MouseReleaseMsg{X: x + 8, Y: y + 3, Button: tea.MouseLeft})
