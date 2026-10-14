@@ -18,6 +18,20 @@ decisions. The person can also talk directly to any worker.
 Herdr and Tuios are research references, not embedded tools. Original Fluke
 provided references for GitHub configuration; this runtime is independent.
 
+The entry point is global: F1 lists projects and their activity, N creates a
+new folder/Git repository with an empty initial commit, and O opens an existing
+repository. Enter opens the selected project's tasks; C opens its conversation.
+F2 is the project workspace. Switching does not stop other sessions; preparing
+a session does not steal focus after the person changes project. Initial setup
+does not require a repository. With no `--repo`, completed setup opens F1.
+
+The 2026-10-08 Windows build uses `d5de95dc0` plus local changes. Native ConPTY
+tests passed for new/open/switch, empty F7/Esc, and complete first-run flows
+with and without a repository (10.179 s). Source tests cover failed persistence
+without losing the new folder, a no-repo launch boundary, and visible global
+attention in English/Spanish at 44–140 columns. Further verification is logged
+in `tools/fluke-console-go/QA-2026-10-07.md`.
+
 ## Approved visual direction
 
 Keep the established cyan/magenta/lime terminal workspace. For the introduction,
@@ -33,7 +47,7 @@ Actual terminal capture: `../../tools/fluke-console-go/captures/go-setup-motion.
 ## Implemented
 
 - First-run stages: local harness discovery, orchestrator/model/sign-in,
-  optional GitHub connection, existing repository selection, worker limit,
+  optional GitHub connection, optional initial repository, worker limit,
   readiness summary. Progress and choices persist; stale asynchronous results
   cannot advance a different step. English default; Spanish selectable.
 - Discovery recognizes 24 CLI commands, identifies installer launchers without
@@ -133,3 +147,15 @@ were refreshed from the test repositories.
 
 Omarchy testing is explicitly deferred: the user's installation is on this same
 machine and requires rebooting. Continue the other work without requiring a reboot.
+
+A second daily-use pass fixed project/task targeting of function keys, narrow
+decision/chat focus, typed colons, compact project forms, visible selected tasks
+and worker previews. Global default changes retain background conversations.
+Pending chat delivery is preserved on CLI exit or failed persistence, with no
+automatic resend. Completing setup resumes published-PR tracking. Issue import
+checks repository/issue identity and rejects origin changes during the query.
+Focused regressions passed (6.717 s); the native launcher/two-worker/integration,
+projects and onboarding/effects bundle passed (70.285 s). The full Go suite
+passed (526.412 s), with the final F7 cross-project header regression checked
+separately (0.184 s). Final Windows, Linux amd64/arm64 and macOS arm64 binaries
+are rebuilt; the QA log records details and current limits.
