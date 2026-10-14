@@ -32,7 +32,7 @@ func (m *model) probeConnections() tea.Cmd {
 	generation := m.connGeneration
 	var cmds []tea.Cmd
 	for _, h := range detectHarnesses() {
-		if !h.Usable {
+		if !h.Usable && !(acpWorkerProviders[h.ID] && h.Installed) {
 			continue
 		}
 		config := AgentConfig{Provider: h.ID, Executable: h.ID}
@@ -164,10 +164,14 @@ func (r usageRow) costText() string {
 }
 
 func (m *model) connectionGlyph(h discoveredHarness) (string, bool) {
-	if !h.Usable {
+	if !h.Usable && !acpWorkerProviders[h.ID] {
 		return "·", false
 	}
 	health, ok := m.connHealth[h.ID]
+	if acpWorkerProviders[h.ID] && ok {
+		// An ACP agent reports no account state; a completed handshake is what is known.
+		return map[bool]string{true: "✓", false: "!"}[health.Available && health.Version != ""], health.Available && health.Version != ""
+	}
 	switch {
 	case !ok:
 		return "…", false
@@ -270,6 +274,10 @@ func (m *model) connectionsShell(w, h int) string {
 		}
 		add(cli)
 		switch {
+		case acpWorkerProviders[selected.ID] && !probed:
+			add(accent(localText("Checking the ACP handshake…", "Comprobando el handshake ACP…"), amber))
+		case acpWorkerProviders[selected.ID]:
+			add(localText("Account and model: set in the agent's own configuration.", "Cuenta y modelo: se definen en la configuración del propio agente."))
 		case !selected.Usable:
 			add(accent(selected.Message, muted))
 		case !probed:
@@ -287,7 +295,7 @@ func (m *model) connectionsShell(w, h int) string {
 		if argv, ok := acpAvailable(selected.ID); ok {
 			add(localText("ACP: ", "ACP: ") + strings.Join(argv, " "))
 			if acpWorkerProviders[selected.ID] {
-				add(accent(localText("Available as a worker: :agent ID | "+selected.ID+" | (model set in its own config).", "Disponible como worker: :agent ID | "+selected.ID+" | (el modelo se define en su configuración)."), lime))
+				add(accent(localText("Available as a worker (:agent ID | "+selected.ID+" | ) and as the orchestrator (F5 → Agent).", "Disponible como worker (:agent ID | "+selected.ID+" | ) y como orquestador (F5 → Agente)."), lime))
 			} else {
 				add(accent(localText("Structured-event adapter found; Fluke does not run workers through it yet.", "Adaptador de eventos estructurados encontrado; Fluke todavía no ejecuta workers con él."), muted))
 			}

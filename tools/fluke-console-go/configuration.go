@@ -16,6 +16,16 @@ type providerLoginResult struct{ err error }
 
 func (m *model) loginProvider() tea.Cmd {
 	a := AgentConfig{Provider: m.draft[0], Executable: strings.TrimSpace(m.draft[1]), Arguments: []string{"login"}}
+	if a.Provider == "opencode" {
+		// OpenCode signs in through its own command, not through the ACP front-end.
+		a.Arguments = []string{"auth", "login"}
+		exe, err := exec.LookPath(a.Executable)
+		if err != nil {
+			m.notice = uiText("No se pudo abrir el login: ") + err.Error()
+			return nil
+		}
+		return tea.ExecProcess(exec.Command(exe, a.Arguments...), func(err error) tea.Msg { return providerLoginResult{err} })
+	}
 	if a.Provider == "claude" {
 		a.Arguments = []string{"auth", "login"}
 	} else if a.Provider != "codex" {
@@ -72,7 +82,7 @@ func cycleChoice(choices []string, value string, backwards bool) string {
 }
 
 func (m *model) cycleProvider(backwards bool) {
-	m.draft[0] = cycleChoice([]string{"codex", "claude", "custom"}, m.draft[0], backwards)
+	m.draft[0] = cycleChoice([]string{"codex", "claude", "opencode", "custom"}, m.draft[0], backwards)
 	if m.draft[0] != "custom" {
 		m.draft[1] = m.draft[0]
 	}

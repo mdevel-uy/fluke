@@ -51,6 +51,9 @@ type acpBridge struct {
 	permOptions []acpPermissionOption
 	permAnswer  chan string
 	turns       sync.WaitGroup
+	// autoApprove is the autonomous-Fluke switch: tool permissions are granted
+	// once each, without asking. Never on by default.
+	autoApprove bool
 }
 
 func newACPBridge(client *acpClient, out io.Writer, cwd string) *acpBridge {
@@ -112,6 +115,14 @@ func (b *acpBridge) handleEvent(e acpEvent) {
 // Always asks. The request stays on screen, the title says "blocked" so Fluke
 // raises it as attention, and nothing is approved until the person answers.
 func (b *acpBridge) handlePermission(req acpPermissionRequest) (string, bool) {
+	if b.autoApprove {
+		for _, o := range req.Options {
+			if o.Kind == "allow_once" {
+				b.print("\n(auto-approved: " + req.Tool.Title + ")\n")
+				return o.ID, true
+			}
+		}
+	}
 	answer := make(chan string, 1)
 	b.mu.Lock()
 	b.permOptions, b.permAnswer = req.Options, answer
@@ -290,7 +301,7 @@ func (b *acpBridge) readInput(r io.Reader) error {
 
 // ---- process entry --------------------------------------------------------------
 
-func runACPWorker(agent, prompt string) error {
+func runACPWorker(agent, prompt string, autoApprove bool) error {
 	var argv []string
 	for _, l := range acpLaunchers {
 		if l.Agent == agent {
@@ -323,7 +334,7 @@ func runACPWorker(agent, prompt string) error {
 		return fmt.Errorf("new session: %w", err)
 	}
 	bridge := newACPBridge(client, os.Stdout, cwd)
-	bridge.session = session
+	bridge.session, bridge.autoApprove = session, autoApprove
 	if fd := os.Stdin.Fd(); term.IsTerminal(fd) {
 		if state, err := term.MakeRaw(fd); err == nil {
 			defer term.Restore(fd, state)

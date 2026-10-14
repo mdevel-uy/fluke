@@ -100,7 +100,7 @@ func launchArgv(a AgentConfig, prompt string) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		argv := []string{self, "--acp-worker", a.Provider}
+		argv := append([]string{self, "--acp-worker", a.Provider}, a.Arguments...)
 		if strings.TrimSpace(prompt) != "" {
 			argv = append(argv, "--", prompt)
 		}

@@ -14,6 +14,15 @@ import (
 
 // Apply only to the orchestrator's launch copy, never the workers' defaults.
 func autonomousFlukeConfig(a AgentConfig, repo string) (AgentConfig, error) {
+	if a.Provider == "opencode" {
+		for _, arg := range a.Arguments {
+			if arg == "--auto-approve" {
+				return a, nil
+			}
+		}
+		a.Arguments = append(append([]string{}, a.Arguments...), "--auto-approve")
+		return a, nil
+	}
 	if a.Provider != "claude" && a.Provider != "codex" {
 		return a, fmt.Errorf("autonomous Fluke requires a supported provider: Codex or Claude")
 	}

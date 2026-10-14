@@ -33,12 +33,13 @@ func run() error {
 	demo := flag.Bool("demo", false, "Explore three simulated projects without files, accounts or model calls")
 	acpCheck := flag.String("acp-check", "", "Start an ACP agent command, run only its initialize handshake (no model call) and print what it offers")
 	acpWorker := flag.String("acp-worker", "", "Internal: run an ACP agent behind a terminal front-end (used by Fluke workers); the task prompt follows --")
+	acpAutoApprove := flag.Bool("auto-approve", false, "Internal: with --acp-worker, approve the agent tool permissions without asking (autonomous Fluke)")
 	flag.Parse()
 	if *acpCheck != "" {
 		return runACPCheck(*acpCheck)
 	}
 	if *acpWorker != "" {
-		return runACPWorker(*acpWorker, strings.Join(flag.Args(), " "))
+		return runACPWorker(*acpWorker, strings.Join(flag.Args(), " "), *acpAutoApprove)
 	}
 	if *demo {
 		return runDemo(*language, *monochrome)

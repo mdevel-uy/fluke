@@ -21,6 +21,9 @@ type providerHealth struct {
 // probeProvider performs local CLI checks only, without spending model tokens.
 // Call it in a tea.Cmd: an npm wrapper can take several seconds to start.
 func probeProvider(ctx context.Context, config AgentConfig) providerHealth {
+	if config.Provider == "opencode" {
+		return probeACPProvider(config)
+	}
 	h := providerHealth{Provider: config.Provider, Models: providerModelChoices(config.Provider)}
 	executable, err := exec.LookPath(config.Executable)
 	if err != nil {

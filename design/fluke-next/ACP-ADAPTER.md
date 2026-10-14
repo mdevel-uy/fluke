@@ -80,5 +80,32 @@ No verificado: un turno real con modelo, el comportamiento de permisos de
 OpenCode en un repo real, y la recuperación tras reiniciar la consola (un worker
 ACP vuelve a empezar y se apoya en los archivos del worktree, como pide el prompt).
 
-Siguiente: el consumo (`usage_update`) en la ficha de conexión, tarjetas de
-herramientas estructuradas en F2 y, al final, el orquestador por ACP.
+## Orquestador por ACP
+
+El mismo front-end sirve al orquestador: en F5 → Agente se elige el proveedor
+`opencode` (sin modelo ni argumentos) y `startSession` lo lanza con el contrato y
+el prompt de siempre (`contract.md`, órdenes por archivo). Los mensajes del chat
+entran por `dispatchChats` como a cualquier worker, y el estado sale del título
+de la ventana.
+
+- **Permisos:** igual que en los workers, se preguntan siempre. Con «Fluke
+  autónomo» activado (Ctrl+A en F5 o `--autonomous`) el front-end recibe
+  `--auto-approve` y concede cada pedido una vez (`allow_once`), nunca
+  `allow_always`. Es el mismo todo-o-nada de Codex y Claude, y sin ese modo el
+  orquestador se bloquea en cada escritura de archivo.
+- **Sesión:** no hay retoma nativa; tras reiniciar, el orquestador arranca de
+  nuevo y se reconcilia con el contexto local, como pide su prompt.
+- **Conexión:** el estado de OpenCode es el del handshake `initialize`; la cuenta
+  y el modelo viven en la configuración de OpenCode (`opencode auth login`
+  desde Ctrl+L).
+- **Primer arranque:** el asistente de configuración inicial sigue ofreciendo solo
+  Codex y Claude; OpenCode se elige después desde F5.
+
+Verificado con pruebas: lanzamiento del orquestador (argv y prompt con el
+contrato), `--auto-approve` solo en modo autónomo, argumentos rechazados fuera de
+esa lista, política de aprobación una vez, selección del proveedor y sondeo sin
+CLI. No se hizo un turno real con modelo.
+
+Siguiente: el consumo (`usage_update`) en la ficha de conexión y tarjetas de
+herramientas estructuradas en F2, para lo que el front-end tendría que dejar de
+ser un terminal y entregar los eventos a Fluke.

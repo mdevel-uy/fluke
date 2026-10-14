@@ -563,8 +563,33 @@ func (a AgentConfig) validateACP() error {
 	if !acpWorkerProviders[a.Provider] {
 		return nil
 	}
+	for _, arg := range a.Arguments {
+		if arg != "--auto-approve" {
+			return errors.New(localText("ACP agents accept no extra arguments here; configure the agent itself.", "Los agentes ACP no aceptan argumentos extra acá; configurá el agente en sí."))
+		}
+	}
 	if strings.TrimSpace(a.Model) != "" {
 		return errors.New(localText("OpenCode picks its model in its own configuration; leave the model empty.", "OpenCode elige su modelo en su propia configuración; dejá el modelo vacío."))
 	}
 	return nil
+}
+
+// probeACPProvider checks an ACP agent with the initialize handshake only: no
+// session, no model request. Account and model live in the agent's own config.
+func probeACPProvider(config AgentConfig) providerHealth {
+	h := providerHealth{Provider: config.Provider, Models: []string{""}}
+	argv, ok := acpAvailable(config.Provider)
+	if !ok {
+		h.Message = uiText("CLI no encontrada. Revisá el ejecutable en configuración.")
+		return h
+	}
+	h.Available, h.Executable = true, argv[0]
+	info, err := checkACP(argv, 8*time.Second)
+	if err != nil {
+		h.Message = localText("The CLI did not complete the ACP handshake: ", "La CLI no completó el handshake ACP: ") + err.Error()
+		return h
+	}
+	h.Version = strings.TrimSpace(info.Name + " " + info.Version)
+	h.Message = localText("ACP available. Its account and model are set in the agent's own configuration.", "ACP disponible. Su cuenta y su modelo se definen en la configuración del propio agente.")
+	return h
 }
