@@ -76,9 +76,24 @@ Verificado: pruebas con agente falso (turno, estado por título, permiso que
 espera a la persona, rechazo con Enter vacío, pegado, cancelación, argv) y un
 arranque real contra OpenCode 1.18.34 (handshake y sesión, sin turno de modelo).
 
-No verificado: un turno real con modelo, el comportamiento de permisos de
-OpenCode en un repo real, y la recuperación tras reiniciar la consola (un worker
-ACP vuelve a empezar y se apoya en los archivos del worktree, como pide el prompt).
+Verificado con un turno real (2026-10-14, OpenCode 1.18.34, repo temporal):
+el turno responde y termina en `end_turn`, la herramienta `write` crea el
+archivo, el título pasa por `starting`, `idle`, `working`, `blocked` y `idle`, y
+al cerrar la entrada el proceso sale con código 0. Con el permiso respondido
+`1` la escritura se completa; con Enter vacío se rechaza, el archivo no se crea
+y el turno termina sin colgarse.
+
+Hallazgo: OpenCode, con su configuración por defecto, **no pide permiso** para
+escribir archivos ni para ejecutar comandos. Para que «preguntar siempre» sea
+real, el front-end arranca OpenCode con
+`OPENCODE_CONFIG_CONTENT={"permission":{"edit":"ask","bash":"ask"}}`, salvo que
+la persona ya haya definido esa variable o que Fluke autónomo esté activo. Las
+claves `edit` y `bash` son las verificadas; otras herramientas (`webfetch`,
+MCP) siguen su configuración.
+
+No verificado: la recuperación tras reiniciar la consola (un worker ACP vuelve
+a empezar y se apoya en los archivos del worktree, como pide el prompt) ni una
+tarea completa de punta a punta con el contrato y la revisión de Fluke.
 
 ## Orquestador por ACP
 
@@ -92,7 +107,8 @@ de la ventana.
   autónomo» activado (Ctrl+A en F5 o `--autonomous`) el front-end recibe
   `--auto-approve` y concede cada pedido una vez (`allow_once`), nunca
   `allow_always`. Es el mismo todo-o-nada de Codex y Claude, y sin ese modo el
-  orquestador se bloquea en cada escritura de archivo.
+  orquestador se bloquea en cada escritura de archivo (con OpenCode, porque
+el front-end lo arranca pidiendo permiso para editar y ejecutar).
 - **Sesión:** no hay retoma nativa; tras reiniciar, el orquestador arranca de
   nuevo y se reconcilia con el contexto local, como pide su prompt.
 - **Conexión:** el estado de OpenCode es el del handshake `initialize`; la cuenta
@@ -104,7 +120,8 @@ de la ventana.
 Verificado con pruebas: lanzamiento del orquestador (argv y prompt con el
 contrato), `--auto-approve` solo en modo autónomo, argumentos rechazados fuera de
 esa lista, política de aprobación una vez, selección del proveedor y sondeo sin
-CLI. No se hizo un turno real con modelo.
+CLI. El turno real (ver arriba) se hizo con el front-end y OpenCode, no con el
+prompt del orquestador de Fluke.
 
 Siguiente: el consumo (`usage_update`) en la ficha de conexión y tarjetas de
 herramientas estructuradas en F2, para lo que el front-end tendría que dejar de

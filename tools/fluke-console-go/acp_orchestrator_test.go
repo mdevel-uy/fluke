@@ -91,3 +91,19 @@ func TestProviderChoiceIncludesOpenCodeAndProbeNeedsNoModel(t *testing.T) {
 		t.Fatal("a model must be refused: ACP agents choose theirs")
 	}
 }
+
+func TestOpenCodeIsStartedAskingForEditsAndCommands(t *testing.T) {
+	env := acpAgentEnv("opencode", false, []string{"PATH=x"})
+	if len(env) != 2 || !strings.Contains(env[1], `"edit":"ask"`) || !strings.Contains(env[1], `"bash":"ask"`) {
+		t.Fatalf("%v", env)
+	}
+	if acpAgentEnv("opencode", true, []string{"PATH=x"}) != nil {
+		t.Fatal("autonomous Fluke must not force questions")
+	}
+	if acpAgentEnv("opencode", false, []string{"OPENCODE_CONFIG_CONTENT={}"}) != nil {
+		t.Fatal("the person's own inline configuration must win")
+	}
+	if acpAgentEnv("gemini", false, nil) != nil {
+		t.Fatal("only OpenCode is configured this way")
+	}
+}

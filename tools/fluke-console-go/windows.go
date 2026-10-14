@@ -284,11 +284,18 @@ func (m *windowManager) ToggleTiling() {
 	m.layout()
 }
 
-// tileColumns: side by side whenever each window keeps a usable width, so the
-// mosaic is horizontal first; a short last row stretches to fill the area.
+// tileColumns: tiles are horizontal bands, one above the other, each using the
+// full width, because terminal agents print line by line. Only when the bands
+// would be too short does a second column appear, before falling back to a
+// single window.
 func (m *windowManager) tileColumns(n int) int {
-	const minWidth = 50
-	return max(1, min(n, m.width/minWidth))
+	for cols := 1; cols <= n; cols++ {
+		rows := (n + cols - 1) / cols
+		if m.height/rows >= 8 && m.width/cols >= 50 {
+			return cols
+		}
+	}
+	return 1
 }
 
 func (m *windowManager) singleWindow() bool {

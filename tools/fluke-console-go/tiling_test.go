@@ -46,19 +46,22 @@ func TestTilingAlwaysFillsTheWholeArea(t *testing.T) {
 	}
 }
 
-func TestTilingIsHorizontalFirstAndAShortRowStretches(t *testing.T) {
-	// Wide area: three windows side by side in one row.
-	m := tileTestManager(t, 160, 34, 3)
-	for i, w := range m.Windows {
-		if w.y != 0 || w.h != 34 {
-			t.Fatalf("window %d is not a full-height column: y=%d h=%d", i, w.y, w.h)
+func TestTilingStacksFullWidthBands(t *testing.T) {
+	for _, tc := range []struct{ w, h, n int }{{160, 34, 3}, {100, 34, 2}, {100, 34, 4}} {
+		m := tileTestManager(t, tc.w, tc.h, tc.n)
+		y := 0
+		for i, w := range m.Windows {
+			if w.x != 0 || w.w != tc.w {
+				t.Fatalf("%+v: window %d does not use the full width: x=%d w=%d", tc, i, w.x, w.w)
+			}
+			if w.y != y {
+				t.Fatalf("%+v: window %d starts at %d, want %d (stacked, no gap)", tc, i, w.y, y)
+			}
+			y += w.h
 		}
-	}
-	// Narrow area: two columns, and the third window takes the whole second row.
-	m = tileTestManager(t, 100, 34, 3)
-	third := m.Windows[2]
-	if m.Windows[0].w != 50 || m.Windows[1].w != 50 || third.w != 100 || third.x != 0 || third.y == 0 {
-		t.Fatalf("%dx%d %dx%d third=%d,%d %dx%d", m.Windows[0].x, m.Windows[0].w, m.Windows[1].x, m.Windows[1].w, third.x, third.y, third.w, third.h)
+		if y != tc.h {
+			t.Fatalf("%+v: bands cover %d of %d rows", tc, y, tc.h)
+		}
 	}
 }
 
@@ -73,5 +76,20 @@ func TestWindowTitleIsDescribedByTheHost(t *testing.T) {
 	view := m.View().Content
 	if !strings.Contains(view, "Checkout · trabajando · codex") || !strings.Contains(view, "Window 1") {
 		t.Fatalf("titles not as described:\n%s", view)
+	}
+}
+
+func TestTilingAddsAColumnBeforeCollapsingToOneWindow(t *testing.T) {
+	// Six bands in 30 rows would be 5 rows tall: two columns of three keep them readable.
+	m := tileTestManager(t, 100, 30, 6)
+	if m.singleWindow() {
+		t.Fatal("six sessions should still be tiled")
+	}
+	if m.Windows[0].w != 50 || m.Windows[1].x != 50 || m.Windows[0].h != 10 {
+		t.Fatalf("%dx%d at %d,%d / %d,%d", m.Windows[0].w, m.Windows[0].h, m.Windows[0].x, m.Windows[0].y, m.Windows[1].x, m.Windows[1].y)
+	}
+	// Too many even for that: one window at a time, as before.
+	if m = tileTestManager(t, 100, 30, 14); !m.singleWindow() {
+		t.Fatal("fourteen sessions cannot be tiled readably")
 	}
 }

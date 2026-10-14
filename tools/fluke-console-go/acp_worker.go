@@ -319,7 +319,7 @@ func runACPWorker(agent, prompt string, autoApprove bool) error {
 		return err
 	}
 	fmt.Fprintf(os.Stdout, "\x1b]0;%sstarting\x07Fluke · %s over ACP\r\n", acpTitlePrefix, agent)
-	client, err := startACP(argv, cwd, nil)
+	client, err := startACP(argv, cwd, acpAgentEnv(agent, autoApprove, os.Environ()))
 	if err != nil {
 		return err
 	}
@@ -363,4 +363,20 @@ func runACPWorker(agent, prompt string, autoApprove bool) error {
 	case <-client.done:
 		return errors.New("the ACP agent exited")
 	}
+}
+
+// OpenCode decides by its own configuration which tools need permission, and by
+// default it lets edits and shell commands run. Fluke's rule is to ask, so the
+// agent is started with those two set to "ask" unless the person already chose
+// something through OPENCODE_CONFIG_CONTENT, or autonomous Fluke is on.
+func acpAgentEnv(agent string, autoApprove bool, base []string) []string {
+	if agent != "opencode" || autoApprove {
+		return nil
+	}
+	for _, kv := range base {
+		if strings.HasPrefix(kv, "OPENCODE_CONFIG_CONTENT=") {
+			return nil
+		}
+	}
+	return append(append([]string{}, base...), `OPENCODE_CONFIG_CONTENT={"permission":{"edit":"ask","bash":"ask"}}`)
 }

@@ -46,7 +46,7 @@ func TestNativeZoomRestoresFloatingBoundsAndSmallWindowFocus(t *testing.T) {
 		t.Fatal("focused PTY did not resize", cols, rows, err)
 	}
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
-	if m.singleWindow() || w.w != 60 {
+	if m.singleWindow() || w.w != 120 {
 		t.Fatal("desktop tiling not restored")
 	}
 }
