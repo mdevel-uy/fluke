@@ -146,8 +146,20 @@ el front-end lo arranca pidiendo permiso para editar y ejecutar).
 Verificado con pruebas: lanzamiento del orquestador (argv y prompt con el
 contrato), `--auto-approve` solo en modo autónomo, argumentos rechazados fuera de
 esa lista, política de aprobación una vez, selección del proveedor y sondeo sin
-CLI. El turno real (ver arriba) se hizo con el front-end y OpenCode, no con el
-prompt del orquestador de Fluke.
+CLI. Verificado de punta a punta con modelo real (`TestLiveACPOrchestratorEndToEnd`,
+opt-in): el orquestador sobre OpenCode lee su contrato, crea la única tarea del
+objetivo acordado, Fluke inicia un worker de OpenCode, el worker entrega
+(`result.txt` exacto, checkout principal intacto), el orquestador es despertado
+y pide la revisión humana. 3 corridas, 3 completas en 103–168 s.
+
+Permisos: la primera corrida pidió 13 respuestas, 11 del orquestador. Causas:
+el contrato manda escribir `update.json.tmp` y renombrarlo (5 pedidos, con
+`Move-Item` por shell) y el agente exploraba con comandos de shell. Ahora el
+directorio del contrato del orquestador se pasa al front-end como canal
+(`--channel=<dir>`, escrituras concedidas sin preguntar) y el prompt de los
+agentes ACP pide escribir directo y leer con sus herramientas de lectura. La
+siguiente corrida pidió **4**, todas del worker (una escritura de código y tres
+comandos de verificación) y ninguna del orquestador.
 
 Siguiente: el consumo (`usage_update`) en la ficha de conexión y tarjetas de
 herramientas estructuradas en F2, para lo que el front-end tendría que dejar de

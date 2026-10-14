@@ -580,6 +580,10 @@ func (a AgentConfig) validateACP() error {
 		return nil
 	}
 	for _, arg := range a.Arguments {
+		// --channel=<dir> is Fluke's own: a directory the agent reports through.
+		if dir, ok := strings.CutPrefix(arg, "--channel="); ok && filepath.IsAbs(dir) && !strings.ContainsAny(dir, "\x00\r\n") {
+			continue
+		}
 		if arg != "--auto-approve" {
 			return errors.New(localText("ACP agents accept no extra arguments here; configure the agent itself.", "Los agentes ACP no aceptan argumentos extra acá; configurá el agente en sí."))
 		}
@@ -609,3 +613,7 @@ func probeACPProvider(config AgentConfig) providerHealth {
 	h.Message = localText("ACP available. Its account and model are set in the agent's own configuration.", "ACP disponible. Su cuenta y su modelo se definen en la configuración del propio agente.")
 	return h
 }
+
+// acpAgentNote adjusts the contract for agents run through ACP, where every
+// shell command and every edit outside Fluke's channel asks the person first.
+const acpAgentNote = "\nExcepción para este agente: escribí los reportes y órdenes del contrato directamente en su ruta final con una sola escritura; no uses un archivo temporal ni un comando de shell para renombrarlo. Para leer o listar archivos usá tus herramientas de lectura y búsqueda, no comandos de shell: cada comando de shell le pide permiso a la persona."

@@ -59,6 +59,9 @@ type acpBridge struct {
 	// autoApprove is the autonomous-Fluke switch: tool permissions are granted
 	// once each, without asking. Never on by default.
 	autoApprove bool
+	// channels are extra directories the agent reports through (the
+	// orchestrator's contract directory); writes inside them are granted.
+	channels []string
 }
 
 func newACPBridge(client *acpClient, out io.Writer, cwd string) *acpBridge {
@@ -335,7 +338,7 @@ func (b *acpBridge) readInput(r io.Reader) error {
 
 // ---- process entry --------------------------------------------------------------
 
-func runACPWorker(agent, prompt string, autoApprove bool) error {
+func runACPWorker(agent, prompt string, autoApprove bool, channels []string) error {
 	var argv []string
 	for _, l := range acpLaunchers {
 		if l.Agent == agent {
@@ -368,7 +371,7 @@ func runACPWorker(agent, prompt string, autoApprove bool) error {
 		return fmt.Errorf("new session: %w", err)
 	}
 	bridge := newACPBridge(client, os.Stdout, cwd)
-	bridge.session, bridge.autoApprove = session, autoApprove
+	bridge.session, bridge.autoApprove, bridge.channels = session, autoApprove, channels
 	if fd := os.Stdin.Fd(); term.IsTerminal(fd) {
 		if state, err := term.MakeRaw(fd); err == nil {
 			defer term.Restore(fd, state)
@@ -425,18 +428,24 @@ func (b *acpBridge) signalChannelOption(req acpPermissionRequest) (string, bool)
 	if req.Tool.Kind == "edit" || len(candidates) == 0 {
 		candidates = append(candidates, req.Tool.Title)
 	}
-	signalDir := filepath.Join(b.cwd, ".fluke-worker")
+	signalDirs := append([]string{filepath.Join(b.cwd, ".fluke-worker")}, b.channels...)
 	inside := false
 	for _, c := range candidates {
 		if !filepath.IsAbs(c) {
 			continue
 		}
-		rel, err := filepath.Rel(signalDir, filepath.Clean(c))
-		if err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			inside = true
-			continue
+		within := false
+		for _, dir := range signalDirs {
+			rel, err := filepath.Rel(dir, filepath.Clean(c))
+			if err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				within = true
+				break
+			}
 		}
-		return "", false // a path outside the channel: ask
+		if !within {
+			return "", false // a path outside every channel: ask
+		}
+		inside = true
 	}
 	if !inside || (req.Tool.Kind != "edit" && req.Tool.Kind != "") {
 		return "", false

@@ -293,9 +293,16 @@ func (m *model) startSession(taskID string, background bool) tea.Cmd {
 			}
 			prompt += "\nReconciliá el contexto local con el historial: no dupliques tareas ni repitas órdenes de una ejecución anterior. El contrato nuevo reemplaza canales anteriores."
 			prompt += "\n" + agentLanguageInstruction(language)
+			if acpWorkerProviders[a.Provider] {
+				prompt += acpAgentNote
+			}
 			launchConfig, native, e := prepareNativeConfig(a, previous, repo, runID)
 			if err == nil {
 				err = e
+			}
+			if acpWorkerProviders[launchConfig.Provider] {
+				// The orchestrator reports through its contract directory, outside the repo.
+				launchConfig.Arguments = append(append([]string{}, launchConfig.Arguments...), "--channel="+path)
 			}
 			if err == nil && autonomous {
 				launchConfig, err = autonomousFlukeConfig(launchConfig, repo)
@@ -377,7 +384,7 @@ func (m *model) startSession(taskID string, background bool) tea.Cmd {
 			}
 			prompt += "\n" + agentLanguageInstruction(mSnapshot.Language)
 			if acpWorkerProviders[a.Provider] {
-				prompt += "\nExcepción para este agente: escribí el reporte directamente en su ruta final con una sola escritura; no uses un archivo temporal ni comandos de shell para renombrarlo."
+				prompt += acpAgentNote
 			}
 			launchConfig, native, e := prepareNativeConfig(a, task.NativeSession, path, runID)
 			if err == nil {

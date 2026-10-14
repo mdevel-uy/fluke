@@ -27,11 +27,12 @@ func TestOrchestratorOverACPLaunchesTheBridgeWithTheContractPrompt(t *testing.T)
 		t.Fatalf("%#v", res)
 	}
 	argv := res.argv
-	if len(argv) != 5 || argv[1] != "--acp-worker" || argv[2] != "opencode" || argv[3] != "--" {
+	// self, --acp-worker, opencode, --channel=<contract dir>, --, prompt
+	if len(argv) != 6 || argv[1] != "--acp-worker" || argv[2] != "opencode" || argv[3] != "--channel="+res.orchestrationDir || argv[4] != "--" {
 		t.Fatalf("%v", argv)
 	}
-	if !strings.Contains(argv[4], "contract.md") || res.provider != "opencode" || res.nativeSession != nil {
-		t.Fatalf("prompt/provider/session: %q %q %v", argv[4], res.provider, res.nativeSession)
+	if !strings.Contains(argv[5], "contract.md") || !strings.Contains(argv[5], "Excepción para este agente") || res.provider != "opencode" || res.nativeSession != nil {
+		t.Fatalf("prompt/provider/session: %q %q %v", argv[5], res.provider, res.nativeSession)
 	}
 }
 
@@ -42,7 +43,7 @@ func TestAutonomousFlukeAutoApprovesOnlyForACPWhenAsked(t *testing.T) {
 	if res.err != nil {
 		t.Fatal(res.err)
 	}
-	if got := strings.Join(res.argv[1:5], " "); got != "--acp-worker opencode --auto-approve --" {
+	if got := strings.Join(res.argv[1:6], " "); got != "--acp-worker opencode --channel="+res.orchestrationDir+" --auto-approve --" {
 		t.Fatalf("%v", res.argv)
 	}
 	m = acpOrchestratorModel(t)

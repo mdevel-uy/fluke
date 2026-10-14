@@ -34,12 +34,20 @@ func run() error {
 	acpCheck := flag.String("acp-check", "", "Start an ACP agent command, run only its initialize handshake (no model call) and print what it offers")
 	acpWorker := flag.String("acp-worker", "", "Internal: run an ACP agent behind a terminal front-end (used by Fluke workers); the task prompt follows --")
 	acpAutoApprove := flag.Bool("auto-approve", false, "Internal: with --acp-worker, approve the agent tool permissions without asking (autonomous Fluke)")
+	var acpChannels []string
+	flag.Func("channel", "Internal: with --acp-worker, a directory the agent reports through (writes there need no permission); repeatable", func(dir string) error {
+		if !filepath.IsAbs(dir) {
+			return fmt.Errorf("--channel needs an absolute path")
+		}
+		acpChannels = append(acpChannels, dir)
+		return nil
+	})
 	flag.Parse()
 	if *acpCheck != "" {
 		return runACPCheck(*acpCheck)
 	}
 	if *acpWorker != "" {
-		return runACPWorker(*acpWorker, strings.Join(flag.Args(), " "), *acpAutoApprove)
+		return runACPWorker(*acpWorker, strings.Join(flag.Args(), " "), *acpAutoApprove, acpChannels)
 	}
 	if *demo {
 		return runDemo(*language, *monochrome)
