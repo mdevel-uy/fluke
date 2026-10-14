@@ -90,13 +90,16 @@ func prepareTask(task Task, dir string) (string, error) {
 	}
 	return path, nil
 }
+// selfExecutable is this program; a test replaces it with a built binary.
+var selfExecutable = os.Executable
+
 func launchArgv(a AgentConfig, prompt string) ([]string, error) {
 	if a.Provider == "opencode" {
 		// ACP agents run behind this same binary acting as their terminal front-end.
 		if err := a.validateACP(); err != nil {
 			return nil, err
 		}
-		self, err := os.Executable()
+		self, err := selfExecutable()
 		if err != nil {
 			return nil, err
 		}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"path/filepath"
 	"encoding/json"
 	"io"
 	"regexp"
@@ -287,4 +288,43 @@ func TestACPWorkerArgvRunsThisBinaryAndRefusesAModel(t *testing.T) {
 	if err := validateNativeSessionConfig(AgentConfig{Provider: "opencode", Executable: "opencode"}); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestSignalChannelWritesAreGrantedAndNothingElseIs(t *testing.T) {
+	cwd := filepath.Join(t.TempDir(), "worktree")
+	b := &acpBridge{out: &lockedBuffer{}, cwd: cwd}
+	options := []acpPermissionOption{{"yes", "Allow once", "allow_once"}, {"no", "Reject", "reject_once"}}
+	report := filepath.Join(cwd, ".fluke-worker", "t1-run-state.json")
+	for name, tc := range map[string]struct {
+		tool acpToolCall
+		want bool
+	}{
+		"report file by title":     {acpToolCall{Kind: "edit", Title: report}, true},
+		"report file by location":  {acpToolCall{Kind: "edit", Title: "write", Paths: []string{report}}, true},
+		"temp file in the channel": {acpToolCall{Kind: "edit", Title: report + ".tmp"}, true},
+		"a source file":            {acpToolCall{Kind: "edit", Title: filepath.Join(cwd, "main.go")}, false},
+		"the channel's parent":     {acpToolCall{Kind: "edit", Title: filepath.Join(cwd, ".fluke-worker")}, false},
+		"traversal out of it":      {acpToolCall{Kind: "edit", Title: filepath.Join(cwd, ".fluke-worker", "..", "secret.txt")}, false},
+		"inside plus outside":      {acpToolCall{Kind: "edit", Paths: []string{report, filepath.Join(cwd, "x.go")}}, false},
+		"a shell command":          {acpToolCall{Kind: "execute", Title: "Move-Item " + report}, false},
+		"relative path":            {acpToolCall{Kind: "edit", Title: ".fluke-worker/state.json"}, false},
+	} {
+		id, ok := b.signalChannelOption(acpPermissionRequest{Tool: tc.tool, Options: options})
+		if ok != tc.want || (ok && id != "yes") {
+			t.Errorf("%s: granted=%v id=%q, want %v", name, ok, id, tc.want)
+		}
+	}
+	if _, ok := b.signalChannelOption(acpPermissionRequest{Tool: acpToolCall{Kind: "edit", Title: report}, Options: []acpPermissionOption{{"no", "Reject", "reject_once"}}}); ok {
+		t.Error("without an allow_once option nothing can be granted")
+	}
+}
+
+func TestBridgeSaysWhenTheAgentGoesQuiet(t *testing.T) {
+	agent := newFakeAgent(t, func(a *fakeAgent, msg acpMessage) {}) // never answers the prompt
+	out := &lockedBuffer{}
+	bridge := newACPBridge(agent.client, out, t.TempDir())
+	bridge.session, bridge.heartbeat = "s1", 60*time.Millisecond
+	bridge.startTurn("algo")
+	waitFor(t, "a silence notice", func() bool { return strings.Contains(out.String(), "no news from the agent") })
+	bridge.client.Cancel("s1")
 }

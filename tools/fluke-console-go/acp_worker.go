@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -51,6 +52,10 @@ type acpBridge struct {
 	permOptions []acpPermissionOption
 	permAnswer  chan string
 	turns       sync.WaitGroup
+	// lastEvent is the last sign of life from the agent; heartbeat is how long a
+	// silent turn waits before saying so (zero means a minute).
+	lastEvent time.Time
+	heartbeat time.Duration
 	// autoApprove is the autonomous-Fluke switch: tool permissions are granted
 	// once each, without asking. Never on by default.
 	autoApprove bool
@@ -84,6 +89,9 @@ func (b *acpBridge) setState(state string) {
 }
 
 func (b *acpBridge) handleEvent(e acpEvent) {
+	b.mu.Lock()
+	b.lastEvent = time.Now()
+	b.mu.Unlock()
 	switch e.Kind {
 	case "message":
 		b.print(e.Text)
@@ -115,6 +123,10 @@ func (b *acpBridge) handleEvent(e acpEvent) {
 // Always asks. The request stays on screen, the title says "blocked" so Fluke
 // raises it as attention, and nothing is approved until the person answers.
 func (b *acpBridge) handlePermission(req acpPermissionRequest) (string, bool) {
+	if id, ok := b.signalChannelOption(req); ok {
+		b.print("\n(report to Fluke allowed)\n")
+		return id, true
+	}
 	if b.autoApprove {
 		for _, o := range req.Options {
 			if o.Kind == "allow_once" {
@@ -191,7 +203,29 @@ func (b *acpBridge) startTurn(text string) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	b.turnCancel = cancel
+	b.lastEvent = time.Now()
+	interval := b.heartbeat
 	b.mu.Unlock()
+	if interval <= 0 {
+		interval = 60 * time.Second
+	}
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				b.mu.Lock()
+				quiet, waiting := time.Since(b.lastEvent), b.permAnswer != nil
+				b.mu.Unlock()
+				if !waiting && quiet >= interval {
+					b.print(fmt.Sprintf("\n(no news from the agent for %ds · Ctrl+C cancels)\n", int(quiet.Seconds())))
+				}
+			}
+		}
+	}()
 	b.setState("working")
 	b.turns.Add(1)
 	go func() {
@@ -379,4 +413,38 @@ func acpAgentEnv(agent string, autoApprove bool, base []string) []string {
 		}
 	}
 	return append(append([]string{}, base...), `OPENCODE_CONFIG_CONTENT={"permission":{"edit":"ask","bash":"ask"}}`)
+}
+
+// The worker reports to Fluke by writing under <worktree>/.fluke-worker/. That
+// channel is Fluke's own, excluded from Git and checked by Fluke before it is
+// read, so writes there are granted without asking; they would otherwise
+// interrupt the person on every status update. Anything else, and every shell
+// command, still goes through the question.
+func (b *acpBridge) signalChannelOption(req acpPermissionRequest) (string, bool) {
+	candidates := append([]string{}, req.Tool.Paths...)
+	if req.Tool.Kind == "edit" || len(candidates) == 0 {
+		candidates = append(candidates, req.Tool.Title)
+	}
+	signalDir := filepath.Join(b.cwd, ".fluke-worker")
+	inside := false
+	for _, c := range candidates {
+		if !filepath.IsAbs(c) {
+			continue
+		}
+		rel, err := filepath.Rel(signalDir, filepath.Clean(c))
+		if err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			inside = true
+			continue
+		}
+		return "", false // a path outside the channel: ask
+	}
+	if !inside || (req.Tool.Kind != "edit" && req.Tool.Kind != "") {
+		return "", false
+	}
+	for _, o := range req.Options {
+		if o.Kind == "allow_once" {
+			return o.ID, true
+		}
+	}
+	return "", false
 }

@@ -91,9 +91,35 @@ la persona ya haya definido esa variable o que Fluke autónomo esté activo. Las
 claves `edit` y `bash` son las verificadas; otras herramientas (`webfetch`,
 MCP) siguen su configuración.
 
+## Tarea completa de punta a punta (2026-10-14)
+
+`TestLiveACPWorkerEndToEnd` (`live_acp_worker_windows_test.go`, solo con
+`FLUKE_LIVE_ACP_BIN`) corre una tarea real: Fluke crea el worktree y el
+contrato, lanza un worker de OpenCode por ACP, el worker lee el contrato, crea
+`NOTAS.md`, lo verifica y reporta con evidencia por el canal de archivos de
+Fluke; la tarea llega a `awaiting_review` con el reporte y la evidencia, el
+contenido es exacto, el checkout principal queda intacto y la revisión muestra
+el cambio.
+
+Resultado: 6 corridas reales, 5 completas en 28–42 s y 1 que quedó 5 minutos en
+«trabajando» sin llegar a reportar (la última pantalla era una herramienta
+completada; no se pudo determinar si fue latencia del proveedor o un cuelgue).
+Por eso el front-end avisa «sin novedades hace N s» cada minuto de silencio.
+
+Hallazgos que cambiaron el diseño:
+
+- El contrato pide escribir un archivo temporal y renombrarlo; el agente lo
+  hacía con `write` y un `Move-Item` por shell, lo que costaba hasta 8 permisos
+  por tarea trivial. Ahora: las escrituras dentro de `<worktree>/.fluke-worker/`
+  (el canal propio de Fluke) se conceden sin preguntar y el prompt de un agente
+  ACP pide escribir el reporte directamente en su ruta final. Cualquier otra
+  ruta y todo comando de shell se siguen preguntando.
+- Resultado: una tarea sencilla queda en un solo permiso (el archivo de código).
+
 No verificado: la recuperación tras reiniciar la consola (un worker ACP vuelve
-a empezar y se apoya en los archivos del worktree, como pide el prompt) ni una
-tarea completa de punta a punta con el contrato y la revisión de Fluke.
+a empezar y se apoya en los archivos del worktree, como pide el prompt), el
+orquestador de Fluke sobre OpenCode con su prompt real y varias tareas en
+paralelo.
 
 ## Orquestador por ACP
 

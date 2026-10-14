@@ -376,6 +376,9 @@ func (m *model) startSession(taskID string, background bool) tea.Cmd {
 				err = atomicJSON(workerSignalPath(path, task.ID, runID, "context"), workerContext(mSnapshot, contextTask))
 			}
 			prompt += "\n" + agentLanguageInstruction(mSnapshot.Language)
+			if acpWorkerProviders[a.Provider] {
+				prompt += "\nExcepción para este agente: escribí el reporte directamente en su ruta final con una sola escritura; no uses un archivo temporal ni comandos de shell para renombrarlo."
+			}
 			launchConfig, native, e := prepareNativeConfig(a, task.NativeSession, path, runID)
 			if err == nil {
 				err = e

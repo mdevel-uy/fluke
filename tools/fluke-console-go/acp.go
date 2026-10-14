@@ -50,6 +50,8 @@ type acpMessage struct {
 type acpToolCall struct {
 	ID, Title, Kind, Status string
 	Text                    []string
+	// Paths the call says it touches (locations or raw input), when it says so.
+	Paths []string
 }
 
 type acpPlanEntry struct{ Content, Status, Priority string }
@@ -223,7 +225,11 @@ func (c *acpClient) serve(msg acpMessage) {
 			Title   string          `json:"title"`
 			Kind    string          `json:"kind"`
 			Status  string          `json:"status"`
-			Content json.RawMessage `json:"content"`
+			Content   json.RawMessage `json:"content"`
+			Locations []struct {
+				Path string `json:"path"`
+			} `json:"locations"`
+			RawInput map[string]any `json:"rawInput"`
 		} `json:"toolCall"`
 		Options []struct {
 			ID   string `json:"optionId"`
@@ -236,6 +242,16 @@ func (c *acpClient) serve(msg acpMessage) {
 		return
 	}
 	req := acpPermissionRequest{Session: p.SessionID, Tool: acpToolCall{ID: p.ToolCall.ID, Title: p.ToolCall.Title, Kind: p.ToolCall.Kind, Status: p.ToolCall.Status, Text: acpContentText(p.ToolCall.Content)}}
+	for _, l := range p.ToolCall.Locations {
+		if l.Path != "" {
+			req.Tool.Paths = append(req.Tool.Paths, l.Path)
+		}
+	}
+	for _, key := range []string{"filePath", "file_path", "path"} {
+		if s, ok := p.ToolCall.RawInput[key].(string); ok && s != "" {
+			req.Tool.Paths = append(req.Tool.Paths, s)
+		}
+	}
 	for _, o := range p.Options {
 		req.Options = append(req.Options, acpPermissionOption{o.ID, o.Name, o.Kind})
 	}
