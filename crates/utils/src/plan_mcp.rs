@@ -32,18 +32,28 @@ pub fn set_server_addr(addr: SocketAddr) {
     let _ = SERVER_ADDR.set(addr);
 }
 
+/// Dirección a la que conectarse: la que el servidor bindeó de verdad. En la
+/// app de escritorio se bindea `localhost`, que en Windows puede quedar solo en
+/// `::1`; armar la URL con `127.0.0.1` fijo da "connection refused".
+fn connect_addr() -> Option<SocketAddr> {
+    let mut addr = *SERVER_ADDR.get()?;
+    if addr.ip().is_unspecified() {
+        addr.set_ip(match addr {
+            SocketAddr::V4(_) => std::net::Ipv4Addr::LOCALHOST.into(),
+            SocketAddr::V6(_) => std::net::Ipv6Addr::LOCALHOST.into(),
+        });
+    }
+    Some(addr)
+}
+
 pub fn url_for_workspace(workspace_id: &str) -> Option<String> {
-    let port = SERVER_ADDR.get()?.port();
-    Some(format!(
-        "http://127.0.0.1:{port}/api/plan-mcp/{workspace_id}"
-    ))
+    let addr = connect_addr()?;
+    Some(format!("http://{addr}/api/plan-mcp/{workspace_id}"))
 }
 
 pub fn director_url_for_session(session_id: &str) -> Option<String> {
-    let port = SERVER_ADDR.get()?.port();
-    Some(format!(
-        "http://127.0.0.1:{port}/api/director-mcp/{session_id}"
-    ))
+    let addr = connect_addr()?;
+    Some(format!("http://{addr}/api/director-mcp/{session_id}"))
 }
 
 /// Escribe el `--mcp-config` para una URL de plan. Un archivo por workspace
