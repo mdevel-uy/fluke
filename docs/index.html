@@ -1,0 +1,1393 @@
+<!doctype html>
+<html lang="es" data-theme="light" data-bg="costa">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex"><!-- Vista previa en fluke.mdevel.cloud: sacar al pasar al dominio definitivo. -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fluke</title>
+<meta name="description" content="Le contás a Fluke qué querés. Los agentes trabajan en paralelo, un reviewer revisa cada PR y el merge lo hacés vos. En tus servidores.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z' fill='%23C7862E'/%3E%3C/svg%3E">
+<script>
+  // Antes de pintar: tema guardado y loader (solo si hay JS, así sin JS la página nunca queda tapada).
+  document.documentElement.classList.add('js');
+  try { if (localStorage.getItem('theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch {}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #071E2C; --panel: #0C2C3F; --text: #EAF2F3; --muted: #93AEB8;
+  --line: rgba(234, 242, 243, .10); --accent: #C7862E; --on-accent: #071E2C;
+  --motif: #EAF2F3; --motif-op: .07;
+  /* La captura de la app es siempre oscura: es la app real. */
+  --a-bg: #0d1321; --a-side: #0b101c; --a-panel: #121a2b; --a-card: #172035;
+  --a-line: #232d45; --a-text: #e6e9f2; --a-low: #8a93a8; --a-dim: #5d6680;
+  --a-indigo: #818cf8; --a-indigo-bg: #6366f1; --a-green: #34d399;
+  --a-amber: #f5a524; --a-red: #f87171;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+:root[data-theme="light"] {
+  --bg: #F3F6F6; --panel: #E4EAEA; --text: #0B3550; --muted: #3D5A5B;
+  --line: rgba(11, 53, 80, .12); --on-accent: #F3F6F6;
+  --motif: #0B3550; --motif-op: .08;
+}
+* { box-sizing: border-box; margin: 0; }
+html { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 400 16px/1.6 Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  transition: background .3s, color .3s;
+}
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+@media (min-width: 720px) { .wrap { padding: 0 32px; } }
+
+/* Loader: tapa la página hasta que cargan las fuentes, para que no se vea el salto de tipografía. */
+#loader { position: fixed; inset: 0; z-index: 100; display: none; place-items: center; background: var(--bg); color: var(--text); }
+.js #loader { display: grid; }
+.ready #loader { opacity: 0; visibility: hidden; transition: opacity .45s ease, visibility 0s .45s; }
+#loader svg { width: 44px; height: 44px; fill: currentColor; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; transform: translateY(3px); } }
+@media (prefers-reduced-motion: reduce) { #loader svg { animation: none; } }
+
+/* Nav */
+nav { display: flex; align-items: center; gap: 32px; height: 72px; }
+.logo { display: flex; align-items: center; gap: 10px; font: 600 22px/1 'Space Grotesk'; letter-spacing: -.01em; }
+.logo svg { width: 24px; height: 24px; fill: currentColor; }
+.links { display: none; gap: 28px; font-size: 14px; color: var(--muted); }
+.links a:hover { color: var(--text); }
+@media (min-width: 820px) { .links { display: flex; } }
+.nav-end { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.icon-btn { width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; color: var(--muted); border: 1px solid var(--line); }
+.icon-btn:hover { color: var(--text); }
+.icon-btn svg { width: 16px; height: 16px; }
+.sun { display: none; }
+:root[data-theme="light"] .sun { display: block; }
+:root[data-theme="light"] .moon { display: none; }
+
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 8px; font-weight: 500; font-size: 15px; white-space: nowrap; transition: filter .15s, background .15s; }
+.btn-sm { height: 36px; padding: 0 14px; font-size: 14px; }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-ghost { border: 1px solid var(--line); }
+.btn-ghost:hover { background: var(--line); }
+.btn:focus-visible, .icon-btn:focus-visible, .rail button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Hero */
+.hero { position: relative; isolation: isolate; padding: 72px 0 0; overflow: hidden; }
+.motif { position: absolute; inset: 0; z-index: -1; pointer-events: none; color: var(--motif); }
+.motif svg { position: absolute; display: none; fill: none; stroke: currentColor; }
+:root[data-bg="fluke"] .motif-fluke { display: block; }
+.motif-fluke, .map .land { opacity: var(--motif-op); }
+/* Mapa único, fijo detrás de toda la página; la cámara la mueve el JS según el scroll. */
+#world { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;
+  color: var(--motif); fill: none; stroke: currentColor; stroke-width: 1; }
+:root:not([data-bg="costa"]) #world { display: none; }
+#world path { vector-effect: non-scaling-stroke; stroke-width: 1.25; }
+/* Coordenadas y ruta un poco más presentes que la costa, para que se lean como mapa. */
+.map .coords circle { opacity: calc(var(--motif-op) * 2.6); transition: opacity .25s; }
+/* El punto de la parada actual se ilumina, igual que en la barra. */
+.map .coords circle.on { opacity: .85; fill: currentColor; }
+.map .route { opacity: calc(var(--motif-op) * 2.2); }
+.map text { fill: currentColor; stroke: none; font: var(--fs, 9px) var(--mono); letter-spacing: .04em; }
+#world #route { stroke-dasharray: 0 6; stroke-width: 1.4; }
+.map .whale { fill: currentColor; stroke: none; }
+/* Tres olas desfasadas 3 s: cada una sube desde el mar, se corta en espuma y desaparece al tocar la costa. */
+.map .swell { opacity: 0; stroke-dasharray: 60 18 12 18; animation: swell 9s cubic-bezier(.35, 0, .45, 1) infinite; }
+.map .foam { opacity: 0; stroke-width: 1.6; stroke-dasharray: 1.5 8; animation: foam 3s ease-out infinite; animation-delay: -1.8s; }
+@keyframes swell {
+  0%   { transform: translate(var(--dx, 0), var(--dy, 36px)); opacity: 0; stroke-dashoffset: 0; }
+  30%  { opacity: .5; }
+  80%  { transform: translate(calc(var(--dx, 0) * .08), calc(var(--dy, 36px) * .08)); opacity: .7; stroke-dasharray: 60 18 12 18; }
+  100% { transform: translate(0, 0); opacity: 0; stroke-dasharray: 4 10 1.5 10; stroke-dashoffset: -40; }
+}
+/* Islas: la ola es la silueta agrandada que se achica hasta la orilla. */
+.map .ring { transform-box: fill-box; transform-origin: center; animation-name: ring; }
+@keyframes ring {
+  0%   { transform: scale(1.35); opacity: 0; stroke-dashoffset: 0; }
+  30%  { opacity: .5; }
+  80%  { transform: scale(1.03); opacity: .7; stroke-dasharray: 60 18 12 18; }
+  100% { transform: scale(1); opacity: 0; stroke-dasharray: 4 10 1.5 10; stroke-dashoffset: -40; }
+}
+@keyframes foam {
+  0%, 35% { opacity: 0; stroke-dashoffset: 0; }
+  65%      { opacity: .9; }
+  100%     { opacity: 0; stroke-dashoffset: -10; }
+}
+@media (prefers-reduced-motion: reduce) { .map .swell, .map .foam { animation: none; display: none; } }
+/* Fluke enorme y cortado por el borde derecho. */
+.motif-fluke { right: -380px; top: -40px; width: 1100px; transform: rotate(-12deg);
+  -webkit-mask: linear-gradient(200deg, #000 30%, transparent 75%);
+          mask: linear-gradient(200deg, #000 30%, transparent 75%); }
+
+.hero-copy { text-align: center; max-width: 820px; margin: 0 auto; }
+h1 { font: 600 clamp(40px, 7vw, 72px)/1.04 'Space Grotesk'; letter-spacing: -.02em; text-wrap: balance; }
+.ask { margin-top: 16px; min-height: 2.6em; font: 500 clamp(19px, 2.8vw, 28px)/1.3 var(--mono); color: var(--accent); }
+.ask .caret { display: inline-block; width: .55em; height: 1.05em; margin-left: 2px; vertical-align: -.15em; background: currentColor; animation: caret 1s steps(1) infinite; }
+@keyframes caret { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ask .caret { animation: none; } }
+.lead { margin: 24px auto 0; max-width: 620px; font-size: clamp(17px, 2vw, 19px); color: var(--muted); text-wrap: pretty; }
+.ctas { margin-top: 36px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.fine { margin-top: 20px; font-size: 13px; color: var(--muted); }
+
+/* Ventana de la app */
+.shot { position: relative; margin: 64px auto 0; max-width: 1180px; }
+.shot::before { content: ''; position: absolute; inset: 10% 8% -4%; z-index: -1; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(199, 134, 46, .16), transparent); filter: blur(40px); }
+.win { background: var(--a-bg); color: var(--a-text); border: 1px solid var(--a-line); border-radius: 12px 12px 0 0; border-bottom: 0;
+  overflow: hidden; font-size: 13px; line-height: 1.45; box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .6); }
+.bar { height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid var(--a-line); background: var(--a-side); }
+.bar i { width: 11px; height: 11px; border-radius: 50%; background: var(--a-line); }
+.bar span { margin-left: auto; margin-right: auto; font: 12px var(--mono); color: var(--a-dim); padding-right: 50px; }
+.app { display: flex; height: 600px; }
+.rail { width: 52px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 0; background: var(--a-side); border-right: 1px solid var(--a-line); }
+.rail button { position: relative; width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; color: var(--a-dim); transition: color .15s, background .15s; }
+.rail button:hover { color: var(--a-text); background: var(--a-panel); }
+.rail button[aria-selected="true"] { color: var(--a-text); background: var(--a-card); }
+.rail button[aria-selected="true"]::before { content: ''; position: absolute; left: -8px; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: var(--a-indigo); }
+.rail svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.rail .dot { position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--a-amber); }
+.rail .sep { flex: 1; }
+.rail .tip { position: absolute; left: 44px; top: 50%; transform: translateY(-50%); background: var(--a-card); border: 1px solid var(--a-line); color: var(--a-text);
+  font-size: 12px; padding: 3px 8px; border-radius: 6px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 5; }
+.rail button:hover .tip { opacity: 1; }
+.screen { flex: 1; min-width: 0; display: none; animation: in .25s ease; }
+.screen.on { display: flex; }
+@keyframes in { from { opacity: 0; transform: translateY(4px); } }
+.hint { text-align: center; font-size: 13px; color: var(--muted); padding: 16px 0 0; }
+
+/* Piezas comunes de la app */
+.k { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--a-low); }
+.m { font-family: var(--mono); }
+.low { color: var(--a-low); }
+.ind { color: var(--a-indigo); }
+.amb { color: var(--a-amber); }
+.grn { color: var(--a-green); }
+.red { color: var(--a-red); }
+.chip { display: inline-block; font: 500 10px var(--mono); padding: 1px 6px; border: 1px solid var(--a-line); border-radius: 4px; color: var(--a-low); }
+.chip.red { border-color: rgba(248, 113, 113, .45); color: var(--a-red); }
+.chip.amb { border-color: rgba(245, 165, 36, .45); color: var(--a-amber); }
+.chip.ind { border-color: rgba(129, 140, 248, .45); color: var(--a-indigo); }
+.abtn { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--a-line); font-size: 12px; background: var(--a-panel); white-space: nowrap; }
+.abtn.pri { background: var(--a-indigo-bg); border-color: var(--a-indigo-bg); color: #fff; }
+.abtn.warn { background: var(--a-amber); border-color: var(--a-amber); color: #1a1205; }
+.pane { padding: 18px 20px; overflow: hidden; }
+.top { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.top h3 { font: 600 17px 'Space Grotesk'; letter-spacing: -.01em; }
+.box { background: var(--a-panel); border: 1px solid var(--a-line); border-radius: 8px; }
+
+/* Fluke (chat) */
+.missions { width: 236px; flex: none; border-right: 1px solid var(--a-line); padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
+.missions .k { padding: 10px 8px 4px; }
+.mi { display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: 6px; }
+.mi.sel { background: var(--a-card); box-shadow: inset 2px 0 0 var(--a-indigo); }
+.av { width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center; font: 500 9px var(--mono); border: 1.5px solid var(--a-line); color: var(--a-low); }
+.av.prog { border-color: var(--a-indigo); border-right-color: var(--a-line); }
+.av.ok { border-color: var(--a-green); color: var(--a-green); }
+.av.fluke { background: var(--a-indigo-bg); border-color: var(--a-indigo-bg); color: #fff; }
+.av.fluke svg { width: 13px; fill: #fff; }
+.mi b { display: block; font-weight: 500; }
+.mi small { font: 11px var(--mono); color: var(--a-low); }
+.mi .pend { margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: var(--a-amber); flex: none; }
+.chat { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.chat-h { display: flex; align-items: center; gap: 12px; padding: 14px 24px; border-bottom: 1px solid var(--a-line); }
+.chat-h .av { width: 34px; height: 34px; }
+.chat-h .av svg { width: 16px; }
+.chat-h h3 { font: 600 16px 'Space Grotesk'; }
+.chat-b { flex: 1; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; overflow: hidden; }
+.resolve { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid rgba(245, 165, 36, .35); background: rgba(245, 165, 36, .06); border-radius: 8px; }
+.resolve .k { color: var(--a-amber); }
+.resolve span:nth-child(2) { flex: 1; }
+.msg .k { color: var(--a-indigo); margin-bottom: 4px; }
+.msg p { font-size: 14px; line-height: 1.6; color: #d5d9e4; }
+.ev { display: flex; align-items: center; gap: 10px; color: var(--a-dim); font: 10px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.ev::before, .ev::after { content: ''; flex: 1; height: 1px; background: var(--a-line); }
+.me { align-self: flex-end; background: #262c5a; border: 1px solid #343b78; padding: 8px 14px; border-radius: 10px; font-size: 14px; }
+.typing { font: 11px var(--mono); color: var(--a-indigo); letter-spacing: .05em; text-transform: uppercase; }
+.typing i { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: currentColor; margin-right: 3px; animation: blink 1.2s infinite; }
+.typing i:nth-child(2) { animation-delay: .2s; } .typing i:nth-child(3) { animation-delay: .4s; }
+@keyframes blink { 50% { opacity: .2; } }
+.composer { margin: 0 24px 18px; display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 8px 0 16px; border: 1px solid #3a4180; border-radius: 10px; color: var(--a-dim); }
+.composer span { flex: 1; }
+.send { width: 30px; height: 30px; border-radius: 7px; background: var(--a-indigo-bg); display: grid; place-items: center; }
+.send svg, .composer > svg { width: 15px; height: 15px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.composer > svg { stroke: var(--a-low); }
+.plan { width: 280px; flex: none; border-left: 1px solid var(--a-line); padding: 18px; }
+.steps { list-style: none; padding: 0; margin: 12px 0 20px; position: relative; }
+.steps::before { content: ''; position: absolute; left: 6px; top: 8px; bottom: 8px; width: 1px; background: var(--a-line); }
+.steps li { position: relative; padding: 0 0 12px 24px; }
+.steps li::before { content: ''; position: absolute; left: 0; top: 4px; width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--a-dim); background: var(--a-bg); }
+.steps li.done::before { background: var(--a-indigo); border-color: var(--a-indigo); }
+.steps li.now::before { border-color: var(--a-indigo); box-shadow: inset 0 0 0 3px var(--a-bg), inset 0 0 0 7px var(--a-indigo); }
+.steps b { display: block; font-weight: 500; }
+.steps small { font: 11px var(--mono); }
+.brief p { margin: 2px 0 12px; color: #d5d9e4; }
+
+/* Issues */
+.iss { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+.seg { display: flex; border: 1px solid var(--a-line); border-radius: 6px; overflow: hidden; font-size: 12px; }
+.seg span { padding: 4px 10px; color: var(--a-low); }
+.seg span.on { background: var(--a-card); color: var(--a-text); }
+.help { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border: 1px solid rgba(248, 113, 113, .5); border-radius: 12px; color: var(--a-red); font-size: 12px; }
+.help::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.slots { font: 12px var(--mono); color: var(--a-low); }
+.slots i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--a-dim); margin-left: 3px; }
+.slots i.on { background: var(--a-indigo); border-color: var(--a-indigo); }
+.band { padding: 12px 14px; }
+.band-h { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.play { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--a-indigo); display: grid; place-items: center; flex: none; }
+.play svg { width: 10px; fill: var(--a-indigo); }
+.band-h b { font-weight: 600; }
+.band-h small { display: block; font-size: 12px; color: var(--a-low); }
+.prog { margin-left: auto; text-align: right; font: 11px var(--mono); color: var(--a-low); }
+.prog i { display: block; width: 120px; height: 3px; border-radius: 2px; background: var(--a-line); margin-bottom: 6px; overflow: hidden; }
+.prog i::after { content: ''; display: block; height: 100%; width: var(--p); background: var(--a-green); }
+.waves { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.wave { border: 1px solid var(--a-line); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 8px; min-height: 108px; }
+.wave .k { display: flex; justify-content: space-between; color: var(--a-indigo); font-size: 10px; }
+.wave.off { border-style: dashed; opacity: .55; }
+.card { background: var(--a-card); border: 1px solid var(--a-line); border-radius: 6px; padding: 8px 10px; }
+.card .row { display: flex; justify-content: space-between; font: 11px var(--mono); color: var(--a-low); margin-bottom: 3px; }
+.card p { font-size: 12.5px; margin-bottom: 6px; }
+.card .chip { margin-right: 3px; }
+.card.ok { border-color: rgba(52, 211, 153, .55); }
+.card.run { border-color: rgba(129, 140, 248, .6); }
+.card.dec { border: 1px dashed rgba(245, 165, 36, .6); }
+.card.wait { opacity: .55; }
+.phases { display: flex; gap: 3px; margin-top: 4px; }
+.phases i { flex: 1; height: 3px; border-radius: 2px; background: var(--a-line); }
+.phases i.d { background: var(--a-indigo); }
+.phases i.r { background: var(--a-amber); }
+
+/* Dashboard */
+.dash { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+.live { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--a-low); border: 1px solid var(--a-line); padding: 2px 8px; border-radius: 10px; }
+.live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--a-green); }
+.kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.kpi { padding: 10px 12px; }
+.kpi strong { display: block; font: 600 22px 'Space Grotesk'; margin: 2px 0; }
+.kpi small { font-size: 11px; color: var(--a-low); }
+.att { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.att-r { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--a-card); border: 1px solid var(--a-line); border-radius: 6px; }
+.att-r span:nth-child(2) { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--a-line); }
+td { padding: 10px 12px; border-bottom: 1px solid var(--a-line); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+.bar-p { width: 90px; height: 4px; border-radius: 2px; background: var(--a-line); overflow: hidden; }
+.bar-p i { display: block; height: 100%; background: var(--a-indigo); }
+
+/* Perfiles */
+.prof { flex: 1; display: flex; flex-direction: column; }
+.pgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.pc { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.pc-h { display: flex; align-items: center; gap: 10px; }
+.pc-h .av { width: 32px; height: 32px; font-size: 10px; }
+.pc-h b { font-weight: 600; font-size: 14px; display: block; }
+.pc-h small { font-size: 11px; color: var(--a-low); }
+.pc-h .chip { margin-left: auto; }
+.pc p { color: var(--a-low); font-size: 12px; min-height: 34px; }
+.pc-f { display: flex; justify-content: space-between; font: 11px var(--mono); color: var(--a-low); border-top: 1px solid var(--a-line); padding-top: 8px; }
+.inst { display: inline-flex; gap: 3px; align-items: center; }
+.inst i { width: 7px; height: 7px; border-radius: 50%; background: var(--a-line); }
+.inst i.on { background: var(--a-green); }
+
+/* Responsive de la captura: se esconden paneles laterales, nunca scroll horizontal de la página. */
+@media (max-width: 1080px) { .plan { display: none; } .kpis { grid-template-columns: repeat(3, 1fr); } .kpis .kpi:nth-child(n+4) { display: none; } }
+@media (max-width: 860px) { .missions { display: none; } .pgrid { grid-template-columns: repeat(2, 1fr); } .hide-sm { display: none; } }
+@media (max-width: 640px) {
+  .app { height: 520px; } .waves { grid-template-columns: 1fr; } .waves .wave:nth-child(n+2) { display: none; }
+  .pgrid { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(2, 1fr); } .kpis .kpi:nth-child(3) { display: none; }
+  .prog, .slots, .seg { display: none; } .pane { padding: 14px; } .chat-b { padding: 16px; } .composer { margin: 0 16px 14px; }
+}
+
+/* Secciones */
+.sec { padding: 112px 0; }
+.sec-head { max-width: 680px; }
+.sec-head.c { margin: 0 auto; text-align: center; }
+h2 { font: 600 clamp(30px, 4.6vw, 46px)/1.08 'Space Grotesk'; letter-spacing: -.02em; text-wrap: balance; }
+.sub { margin-top: 16px; font-size: 18px; color: var(--muted); text-wrap: pretty; }
+.surface { background: color-mix(in srgb, var(--panel) 72%, transparent); border: 1px solid var(--line); border-radius: 12px; }
+.agents-sec { padding: 72px 0 24px; text-align: center; }
+.agents-sec p { color: var(--muted); font-size: 15px; }
+.agents { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.agents span { padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px; font: 14px var(--mono); background: color-mix(in srgb, var(--bg) 70%, transparent); }
+
+.feats { margin-top: 24px; }
+.feat { display: grid; grid-template-columns: 1fr 1.15fr; gap: 72px; align-items: center; padding: 56px 0; }
+.feat:nth-child(even) .feat-copy { order: 2; }
+.feat h3 { font: 600 30px/1.15 'Space Grotesk'; letter-spacing: -.015em; text-wrap: balance; }
+.feat p { margin-top: 14px; color: var(--muted); font-size: 17px; text-wrap: pretty; }
+.feat ul { margin-top: 18px; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 15px; }
+.feat li { padding-left: 22px; position: relative; }
+.feat li::before { content: ''; position: absolute; left: 2px; top: .62em; width: 10px; height: 1.5px; background: var(--accent); }
+@media (max-width: 860px) { .feat { grid-template-columns: 1fr; gap: 32px; padding: 40px 0; } .feat:nth-child(even) .feat-copy { order: 0; } }
+.mini { background: var(--a-bg); color: var(--a-text); border: 1px solid var(--a-line); border-radius: 12px; padding: 20px; font-size: 13px; line-height: 1.5;
+  box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .55); display: flex; flex-direction: column; gap: 12px; }
+.mini .msg p { font-size: 13.5px; }
+.opts { display: flex; gap: 6px; flex-wrap: wrap; }
+.opts span { border: 1px solid var(--a-line); border-radius: 6px; padding: 4px 10px; font-size: 12px; }
+.opts span.on { border-color: var(--a-indigo); color: var(--a-indigo); }
+.brief-c { border: 1px solid var(--a-line); border-radius: 8px; padding: 12px 14px; background: var(--a-panel); }
+.brief-c p { margin: 2px 0 10px; color: #d5d9e4; }
+.rounds { display: flex; flex-direction: column; }
+.round { display: grid; grid-template-columns: 18px 1fr; gap: 12px; padding-bottom: 14px; position: relative; }
+.round::before { content: ''; position: absolute; left: 8px; top: 18px; bottom: 0; width: 1px; background: var(--a-line); }
+.round:last-child::before { display: none; }
+.round i { width: 17px; height: 17px; border-radius: 50%; border: 1.5px solid var(--a-dim); background: var(--a-bg); margin-top: 1px; }
+.round i.red { border-color: var(--a-red); } .round i.grn { border-color: var(--a-green); background: var(--a-green); } .round i.ind { border-color: var(--a-indigo); }
+.round b { font-weight: 500; }
+.round small { display: block; color: var(--a-low); }
+.dialog { border: 1px solid var(--a-line); border-radius: 10px; background: var(--a-panel); padding: 16px; }
+.dialog h4 { font: 600 15px 'Space Grotesk'; margin-bottom: 6px; }
+.dialog .act { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+.proof { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 48px; }
+.proof div { padding: 28px; }
+.proof strong { display: block; font: 600 48px/1 'Space Grotesk'; letter-spacing: -.02em; }
+.proof p { margin-top: 10px; color: var(--muted); font-size: 15px; }
+@media (max-width: 960px) { .proof { grid-template-columns: repeat(2, 1fr); } }
+
+.onprem { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
+@media (max-width: 860px) { .onprem { grid-template-columns: 1fr; } }
+.checks { margin-top: 24px; padding: 0; list-style: none; display: grid; gap: 12px; }
+.checks li { display: grid; grid-template-columns: 20px 1fr; gap: 10px; }
+.checks svg { width: 18px; height: 18px; margin-top: 3px; fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.checks small { display: block; color: var(--muted); font-size: 14px; }
+.term { background: #050f17; color: #d6e2e6; border: 1px solid var(--a-line); border-radius: 12px; overflow: hidden; font: 13px/1.7 var(--mono); }
+.term .bar { background: #071722; border-color: #12283a; }
+.term pre { margin: 0; padding: 20px; overflow-x: auto; }
+.term .c { color: #6f8a96; } .term .p { color: var(--accent); }
+
+.dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 48px; }
+@media (max-width: 860px) { .dl { grid-template-columns: 1fr; } }
+.dl > div { padding: 28px; display: flex; flex-direction: column; gap: 6px; }
+.dl svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 10px; }
+.dl b { font: 600 20px 'Space Grotesk'; }
+.dl small { color: var(--muted); font: 13px var(--mono); }
+.dl .btn { margin-top: 16px; align-self: flex-start; }
+.ver { margin-top: 20px; text-align: center; color: var(--muted); font-size: 14px; }
+
+.log { margin-top: 48px; display: grid; gap: 16px; max-width: 860px; }
+.rel { display: grid; grid-template-columns: 160px 1fr; gap: 24px; padding: 24px 28px; }
+@media (max-width: 640px) { .rel { grid-template-columns: 1fr; gap: 8px; } }
+.rel b { font: 600 22px 'Space Grotesk'; display: block; }
+.rel time, .rel .tag { font: 13px var(--mono); color: var(--muted); }
+.rel .tag { display: inline-block; margin-top: 4px; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+.rel ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--muted); }
+.rel ul strong { color: var(--text); font-weight: 500; }
+
+.faq { margin-top: 40px; max-width: 820px; display: grid; gap: 10px; }
+.faq details { padding: 0 24px; }
+.faq summary { cursor: pointer; padding: 20px 0; font-weight: 500; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: '+'; color: var(--muted); font-size: 20px; line-height: 1; transition: transform .2s; }
+.faq details[open] summary::after { transform: rotate(45deg); }
+.faq details p { padding-bottom: 20px; color: var(--muted); }
+
+.cta { text-align: center; padding: 140px 0 120px; }
+.cta .ctas { margin-top: 32px; }
+footer { border-top: 1px solid var(--line); padding: 32px 0 80px; font-size: 14px; color: var(--muted); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: center; }
+footer .logo { font-size: 18px; color: var(--text); }
+footer .logo svg { width: 18px; height: 18px; }
+footer nav { height: auto; gap: 24px; flex-wrap: wrap; }
+footer .geo { margin-left: auto; font-family: var(--mono); font-size: 12px; }
+
+/* Open source */
+.btn .gh, .gh-star > svg:not(.gh) { width: 16px; height: 16px; flex: none; fill: currentColor; }
+.stars { margin-left: 2px; padding-left: 8px; border-left: 1px solid currentColor; font: 500 13px var(--mono); opacity: .8; }
+@media (max-width: 480px) { .hide-xs { display: none; } }
+.oss { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 48px; }
+@media (max-width: 860px) { .oss { grid-template-columns: 1fr; } }
+.oss > div { padding: 28px; display: flex; flex-direction: column; gap: 8px; }
+.oss svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 8px; }
+.oss b { font: 600 20px 'Space Grotesk'; }
+.oss p { color: var(--muted); }
+#open-source .ctas { margin-top: 40px; }
+
+/* Fluke, tu Jarvis */
+.jarvis { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+@media (max-width: 860px) { .jarvis { grid-template-columns: 1fr; gap: 32px; } }
+.powers { margin-top: 32px; display: grid; gap: 20px; }
+.powers b { font: 600 20px 'Space Grotesk'; letter-spacing: -.01em; }
+.powers p { margin-top: 6px; color: var(--muted); }
+
+/* SDD: las cuatro etapas de una misión */
+.sdd { margin-top: 20px; padding: 0; list-style: none; display: flex; gap: 6px; flex-wrap: wrap; font: 13px var(--mono); }
+.sdd li { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.sdd li + li::before { content: '→'; color: var(--muted); margin-right: 2px; }
+.sdd li.done { color: var(--text); }
+.sdd li.now { color: var(--text); font-weight: 500; text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 4px; }
+
+/* Workspaces */
+.ws { display: flex; flex-direction: column; gap: 8px; }
+.ws-r { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--a-panel); border: 1px solid var(--a-line); border-radius: 8px; }
+.ws-r > span:nth-child(2) { flex: 1; min-width: 0; }
+.ws-r b { display: block; font-weight: 500; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-r small { color: var(--a-low); }
+.ws-r .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--a-dim); flex: none; }
+.ws-r .dot.run { background: var(--a-green); box-shadow: 0 0 0 3px rgba(52, 211, 153, .15); }
+.ws-r.off { opacity: .55; }
+
+/* Ciclo de cada issue */
+.tpls { margin-top: 32px; display: flex; gap: 8px; flex-wrap: wrap; }
+.tpls button { height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+.tpls button:hover { color: var(--text); }
+.tpls button[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+.tpls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cycle { margin-top: 28px; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(9, 1fr); gap: 8px; counter-reset: ph; }
+.cycle li { position: relative; padding: 14px 12px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--panel) 72%, transparent);
+  display: flex; flex-direction: column; gap: 4px; transition: opacity .25s, border-color .25s; }
+.cycle li b { font: 600 15px 'Space Grotesk'; }
+.cycle li small { color: var(--muted); font-size: 12px; line-height: 1.35; }
+.cycle li em { font: normal 11px var(--mono); color: var(--muted); }
+.cycle li.fixed { border-color: color-mix(in srgb, var(--text) 35%, transparent); }
+.cycle li.you { border-color: var(--accent); }
+.cycle li.skip { opacity: .35; border-style: dashed; }
+.cycle .back { font: 11px var(--mono); color: var(--muted); }
+@media (max-width: 1100px) { .cycle { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 560px) { .cycle { grid-template-columns: 1fr 1fr; } }
+
+/* Barra lateral de la ruta */
+#stops { position: fixed; top: 0; bottom: 0; right: 12px; width: 220px; z-index: 5; pointer-events: none; font: 10.5px/1.35 var(--mono); color: var(--muted); }
+:root:not([data-bg="costa"]) #stops { display: none; }
+.stops-title { position: absolute; top: 84px; right: 0; text-align: right; color: var(--text); font-weight: 500; }
+.stops-title span { display: block; color: var(--muted); font-weight: 400; }
+.stops-title .stops-live { margin-top: 6px; color: var(--text); white-space: pre; }
+.stops-line { position: absolute; top: 204px; bottom: 56px; right: 5px; width: 1px; background: var(--line); }
+#stops ol { list-style: none; margin: 0; padding: 0; }
+#stops li { position: absolute; right: -4px; display: flex; align-items: center; gap: 10px; transform: translateY(-50%); opacity: .55; transition: opacity .25s; white-space: nowrap; }
+#stops li::after { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid currentColor; background: var(--bg); box-sizing: border-box; }
+#stops li.on { opacity: 1; color: var(--text); }
+#stops li.on::after { background: currentColor; }
+#stops .txt { text-align: right; padding: 2px 6px; border-radius: 4px; background: color-mix(in srgb, var(--bg) 70%, transparent); }
+#stops b { display: block; font-weight: 500; color: var(--text); }
+.stops-whale { position: absolute; left: -8px; width: 17px; height: 17px; fill: var(--text); transform: translateY(-50%); transition: rotate .3s; }
+.stops-whale.up { rotate: 180deg; }
+/* Sin lugar al costado del contenido: solo se nombra la parada actual; en celular, solo la línea. */
+@media (max-width: 1399px) { #stops li:not(.on) .txt { display: none; } }
+/* Celular: versión 0. Mapa fijo con zoom sobre la costa uruguaya, solo detrás del hero; sin barra ni ballena. */
+@media (max-width: 720px) {
+  #stops, #world #route, #world .whale { display: none; }
+  #world { position: absolute; height: 100svh; }
+}
+#world #route-uy { display: none; stroke-dasharray: 0 6; stroke-width: 1.4; }
+@media (max-width: 720px) { #world #route-uy { display: inline; } }
+
+</style>
+</head>
+<body>
+<div id="loader" role="status" aria-label="Cargando"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z"/></svg></div>
+<!-- Un solo mapa detrás de toda la página. X = (lon + 70) * 157.6, Y = (-lat - 26.5) * 200. El JS mueve la cámara con el scroll. -->
+<svg id="world" class="map" aria-hidden="true" stroke-linejoin="round" stroke-linecap="round">
+  <defs>
+    <path id="c-uy" d="M1915,1594 L1938,1590 L1959,1583 L1981,1586 L1999,1592 L2017,1600 L2034,1612 L2049,1624 L2070,1633 L2091,1640 L2114,1651 L2135,1660 L2151,1660 L2160,1668 L2167,1676 L2173,1678 L2178,1684 L2181,1688 L2186,1684 L2191,1682 L2202,1678 L2213,1673 L2222,1666 L2234,1660 L2244,1656 L2259,1657 L2277,1658 L2295,1662 L2309,1668 L2318,1673 L2321,1676 L2338,1680 L2356,1684 L2364,1680 L2369,1688 L2372,1694 L2377,1690 L2388,1682 L2403,1677 L2422,1670 L2438,1663 L2451,1656 L2465,1645 L2477,1636 L2487,1633 L2496,1634 L2506,1628 L2514,1620 L2525,1608 L2537,1596 L2548,1588 L2556,1580 L2563,1571 L2569,1560 L2577,1541 L2585,1524 L2594,1508 L2601,1493 L2608,1480 L2615,1465 L2621,1450"/>
+    <path id="c-br" d="M2621,1450 L2663,1400 L2726,1300 L2774,1210 L2823,1130 L2884,1050 L2955,990 L3010,920 L3065,840 L3105,780 L3132,696 L3168,624 L3195,568 L3247,500 L3310,440 L3344,396 L3362,346 L3369,306 L3381,270 L3401,220 L3392,140"/>
+    <path id="c-plata" d="M1833,1620 L1857,1640 L1907,1670 L1970,1710 L2025,1790"/>
+    <path id="c-samborombon" d="M2025,1790 L1997,1840 L1989,1884 L2009,1930 L2049,1954 L2088,1960 L2096,1990 L2099,2044 L2072,2122 L2057,2152 L2025,2190 L1986,2244 L1965,2300"/>
+    <path id="c-bonaerense" d="M1965,2300 L1916,2354 L1775,2412 L1655,2450 L1565,2472 L1371,2500 L1261,2490 L1221,2460"/>
+    <path id="c-patagonia" d="M1221,2460 L1245,2520 L1245,2580 L1214,2670 L1237,2760 L1229,2810 L1198,2880 L1135,2906 L1040,2930 L946,2920 L820,2860 L772,2900 L788,3020 L812,3110 L859,3150 L890,3170 L875,3190 L914,3150 L946,3126 L985,3114 L1009,3160 L1012,3210 L1004,3254 L961,3270 L922,3230 L901,3214 L875,3204 L827,3210 L783,3254 L796,3290 L895,3294 L851,3330 L780,3360 L756,3440 L760,3510 L709,3600 L678,3660 L701,3684 L646,3710 L536,3730 L410,3820 L397,3872 L391,3988 L504,4080 L678,4120 L646,4250 L552,4400 L362,4560 L284,4700 L268,4720 L165,5020 L260,5166"/>
+    <path id="c-tdf" d="M221,5230 L284,5310 L362,5460 L536,5600 L756,5640 L725,5690 L504,5690 L221,5680"/>
+    <path id="c-gm" d="M1371,5000 L1481,4950 L1592,4970 L1639,5040 L1600,5140 L1513,5140 L1403,5080 Z"/>
+    <path id="c-so" d="M1671,4980 L1812,4960 L1931,5010 L1875,5070 L1828,5150 L1734,5170 L1686,5100 L1718,5050 Z"/>
+    <path id="c-sg" d="M5035,5500 L5106,5510 L5169,5506 L5232,5530 L5287,5554 L5327,5590 L5374,5620 L5390,5664 L5343,5676 L5295,5644 L5232,5600 L5169,5560 L5106,5540 L5043,5520 Z"/></defs>
+  <g id="cam">
+    <g class="land">
+      <path d="M1899,980 L1883,1060 L1868,1160 L1875,1260 L1852,1350 L1825,1440 L1825,1476 L1845,1500 L1886,1534 L1915,1594 L1938,1590 L1959,1583 L1981,1586 L1999,1592 L2017,1600 L2034,1612 L2049,1624 L2070,1633 L2091,1640 L2114,1651 L2135,1660 L2151,1660 L2160,1668 L2167,1676 L2173,1678 L2178,1684 L2181,1688 L2186,1684 L2191,1682 L2202,1678 L2213,1673 L2222,1666 L2234,1660 L2244,1656 L2259,1657 L2277,1658 L2295,1662 L2309,1668 L2318,1673 L2321,1676 L2338,1680 L2356,1684 L2364,1680 L2369,1688 L2372,1694 L2377,1690 L2388,1682 L2403,1677 L2422,1670 L2438,1663 L2451,1656 L2465,1645 L2477,1636 L2487,1633 L2496,1634 L2506,1628 L2514,1620 L2525,1608 L2537,1596 L2548,1588 L2556,1580 L2563,1571 L2569,1560 L2577,1541 L2585,1524 L2594,1508 L2601,1493 L2608,1480 L2615,1465 L2621,1450 L2663,1400 L2726,1300 L2774,1210 L2823,1130 L2884,1050 L2955,990 L3010,920 L3065,840 L3105,780 L3132,696 L3168,624 L3195,568 L3247,500 L3310,440 L3344,396 L3362,346 L3369,306 L3381,270 L3401,220 L3392,140"/>
+      <path d="M1466,1220 L1477,1290 L1529,1340 L1608,1390 L1671,1450 L1726,1510 L1773,1550 L1800,1580 L1816,1600 L1833,1620 L1857,1640 L1907,1670 L1970,1710 L2025,1790 L1997,1840 L1989,1884 L2009,1930 L2049,1954 L2088,1960 L2096,1990 L2099,2044 L2072,2122 L2057,2152 L2025,2190 L1986,2244 L1965,2300 L1916,2354 L1775,2412 L1655,2450 L1565,2472 L1371,2500 L1261,2490 L1221,2460 L1245,2520 L1245,2580 L1214,2670 L1237,2760 L1229,2810 L1198,2880 L1135,2906 L1040,2930 L946,2920 L820,2860 L772,2900 L788,3020 L812,3110 L859,3150 L890,3170 L875,3190 L914,3150 L946,3126 L985,3114 L1009,3160 L1012,3210 L1004,3254 L961,3270 L922,3230 L901,3214 L875,3204 L827,3210 L783,3254 L796,3290 L895,3294 L851,3330 L780,3360 L756,3440 L760,3510 L709,3600 L678,3660 L701,3684 L646,3710 L536,3730 L410,3820 L397,3872 L391,3988 L504,4080 L678,4120 L646,4250 L552,4400 L362,4560 L284,4700 L268,4720 L165,5020 L260,5166"/>
+      <path d="M221,5230 L284,5310 L362,5460 L536,5600 L756,5640 L725,5690 L504,5690 L221,5680"/>
+      <path d="M2963,710 L2955,770 L2923,840 L2876,910 L2840,980 L2805,1040 L2818,1110 L2845,1070 L2908,980 L2979,910 L3034,830 L3045,770 L3010,740 Z"/>
+      <path d="M1371,5000 L1481,4950 L1592,4970 L1639,5040 L1600,5140 L1513,5140 L1403,5080 Z"/>
+      <path d="M1671,4980 L1812,4960 L1931,5010 L1875,5070 L1828,5150 L1734,5170 L1686,5100 L1718,5050 Z"/>
+      <path d="M5035,5500 L5106,5510 L5169,5506 L5232,5530 L5287,5554 L5327,5590 L5374,5620 L5390,5664 L5343,5676 L5295,5644 L5232,5600 L5169,5560 L5106,5540 L5043,5520 Z"/>
+      <circle cx="2383" cy="1706" r="2.5"/>
+      <!-- Olas en toda la costa: cada tramo arranca corrido hacia su mar (--dx, --dy) y llega a la orilla; las islas, en anillo. -->
+      <use class="swell" href="#c-uy" style="--dx:0px;--dy:36px"/>
+      <use class="swell" href="#c-uy" style="--dx:0px;--dy:36px;animation-delay:-3s"/>
+      <use class="swell" href="#c-uy" style="--dx:0px;--dy:36px;animation-delay:-6s"/>
+      <use class="foam" href="#c-uy"/>
+      <use class="swell" href="#c-br" style="--dx:24px;--dy:16px"/>
+      <use class="swell" href="#c-br" style="--dx:24px;--dy:16px;animation-delay:-3s"/>
+      <use class="swell" href="#c-br" style="--dx:24px;--dy:16px;animation-delay:-6s"/>
+      <use class="foam" href="#c-br"/>
+      <use class="swell" href="#c-plata" style="--dx:14px;--dy:-26px"/>
+      <use class="swell" href="#c-plata" style="--dx:14px;--dy:-26px;animation-delay:-3s"/>
+      <use class="swell" href="#c-plata" style="--dx:14px;--dy:-26px;animation-delay:-6s"/>
+      <use class="foam" href="#c-plata"/>
+      <use class="swell" href="#c-samborombon" style="--dx:30px;--dy:6px"/>
+      <use class="swell" href="#c-samborombon" style="--dx:30px;--dy:6px;animation-delay:-3s"/>
+      <use class="swell" href="#c-samborombon" style="--dx:30px;--dy:6px;animation-delay:-6s"/>
+      <use class="foam" href="#c-samborombon"/>
+      <use class="swell" href="#c-bonaerense" style="--dx:6px;--dy:30px"/>
+      <use class="swell" href="#c-bonaerense" style="--dx:6px;--dy:30px;animation-delay:-3s"/>
+      <use class="swell" href="#c-bonaerense" style="--dx:6px;--dy:30px;animation-delay:-6s"/>
+      <use class="foam" href="#c-bonaerense"/>
+      <use class="swell" href="#c-patagonia" style="--dx:30px;--dy:10px"/>
+      <use class="swell" href="#c-patagonia" style="--dx:30px;--dy:10px;animation-delay:-3s"/>
+      <use class="swell" href="#c-patagonia" style="--dx:30px;--dy:10px;animation-delay:-6s"/>
+      <use class="foam" href="#c-patagonia"/>
+      <use class="swell" href="#c-tdf" style="--dx:20px;--dy:25px"/>
+      <use class="swell" href="#c-tdf" style="--dx:20px;--dy:25px;animation-delay:-3s"/>
+      <use class="swell" href="#c-tdf" style="--dx:20px;--dy:25px;animation-delay:-6s"/>
+      <use class="foam" href="#c-tdf"/>
+      <use class="swell ring" href="#c-gm"/>
+      <use class="swell ring" href="#c-gm" style="animation-delay:-3s"/>
+      <use class="swell ring" href="#c-gm" style="animation-delay:-6s"/>
+      <use class="foam" href="#c-gm"/>
+      <use class="swell ring" href="#c-so"/>
+      <use class="swell ring" href="#c-so" style="animation-delay:-3s"/>
+      <use class="swell ring" href="#c-so" style="animation-delay:-6s"/>
+      <use class="foam" href="#c-so"/>
+      <use class="swell ring" href="#c-sg"/>
+      <use class="swell ring" href="#c-sg" style="animation-delay:-3s"/>
+      <use class="swell ring" href="#c-sg" style="animation-delay:-6s"/>
+      <use class="foam" href="#c-sg"/>
+    </g>
+    <!-- Solo puntos: los nombres y datos van en la barra lateral (#stops). -->
+    <g class="coords">
+      <circle cx="3365" cy="340" r="2.5"/><circle cx="2556" cy="1580" r="2.5"/><circle cx="2372" cy="1694" r="2.5"/>
+      <circle cx="2181" cy="1688" r="2.5"/><circle cx="1962" cy="2300" r="2.5"/><circle cx="961" cy="3180" r="2.5"/>
+      <circle cx="783" cy="3254" r="2.5"/><circle cx="1615" cy="5060" r="2.5"/><circle cx="5280" cy="5572" r="2.5"/>
+    </g>
+    <g class="route">
+      <path id="route" d="M3436,360 C3415,400 3363,513 3310,600 C3257,687 3188,787 3120,880 C3052,973 2971,1070 2900,1160 C2829,1250 2750,1348 2695,1420 C2640,1492 2606,1548 2569,1590 C2532,1632 2507,1645 2474,1670 C2441,1695 2414,1715 2372,1740 C2330,1765 2259,1780 2222,1820 C2185,1860 2168,1923 2151,1980 C2134,2037 2141,2095 2120,2160 C2099,2225 2087,2310 2025,2370 C1963,2430 1848,2478 1749,2520 C1651,2562 1513,2570 1434,2620 C1355,2670 1330,2758 1277,2820 C1225,2882 1155,2943 1119,2990 C1084,3037 1073,3068 1064,3100 C1055,3132 1077,3148 1064,3180 C1051,3212 1021,3276 985,3290 C950,3304 856,3265 851,3264 C846,3263 914,3255 953,3284 C992,3313 1036,3384 1087,3440 C1138,3496 1174,3533 1261,3620 C1348,3707 1472,3813 1608,3960 C1745,4107 1954,4357 2080,4500 C2206,4643 2185,4707 2364,4820 C2543,4933 2863,5083 3152,5180 C3441,5277 3799,5353 4098,5400 C4398,5447 4807,5450 4949,5460"/>
+      <!-- Celular: solo el tramo de la costa atlántica uruguaya, del Chuy a Punta del Este. -->
+      <path id="route-uy" d="M2663,1450 C2647,1473 2601,1553 2569,1590 C2538,1627 2507,1645 2474,1670 C2441,1695 2402,1723 2372,1740 C2342,1757 2306,1765 2293,1770"/>
+      <path id="whale" class="whale" d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z"/>
+    </g>
+  </g>
+</svg>
+<!-- Barra lateral: la ruta como línea, con las paradas (los puntos del mapa) y un fluke que baja con el scroll. -->
+<aside id="stops" aria-label="Ruta de la ballena franca austral">
+  <p class="stops-title">Ballena franca austral<span>ruta de migración</span><span class="stops-live"></span></p>
+  <div class="stops-line">
+    <svg class="stops-whale" viewBox="0 0 100 100" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z"/></svg>
+    <ol>
+      <li data-at="3365,340"><span class="txt"><b>Santa Catarina</b>28°14′S 48°40′O<br>cría</span></li>
+      <li data-at="2556,1580"><span class="txt"><b>Rocha · Cabo Polonio</b>34°24′S 53°47′O</span></li>
+      <li data-at="2372,1694"><span class="txt"><b>Punta del Este</b>34°58′S 54°57′O</span></li>
+      <li data-at="2181,1688"><span class="txt"><b>Montevideo</b>34°54′S 56°10′O</span></li>
+      <li data-at="1962,2300"><span class="txt"><b>Mar del Plata</b>38°00′S 57°33′O</span></li>
+      <li data-at="961,3180"><span class="txt"><b>Península Valdés</b>42°30′S 64°00′O<br>cría</span></li>
+      <li data-at="783,3254"><span class="txt"><b>Puerto Madryn</b>42°46′S 65°02′O<br>Golfo Nuevo</span></li>
+      <li data-at="1615,5060"><span class="txt"><b>Islas Malvinas</b>51°45′S 59°00′O</span></li>
+      <li data-at="5280,5572"><span class="txt"><b>Georgias del Sur</b>54°17′S 36°30′O<br>alimentación</span></li>
+    </ol>
+  </div>
+</aside>
+
+<header class="wrap">
+  <nav aria-label="Principal">
+    <a class="logo" href="#" aria-label="fluke, inicio">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z"/></svg>
+      fluke
+    </a>
+    <div class="links">
+      <a href="#jarvis">Fluke</a>
+      <a href="#como">Cómo funciona</a>
+      <a href="#onprem">On-premises</a>
+      <a href="#open-source">Open source</a>
+      <a href="#descargas">Descargas</a>
+    </div>
+    <div class="nav-end">
+      <button class="icon-btn" id="theme" aria-label="Cambiar entre modo claro y oscuro">
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <a class="btn btn-ghost btn-sm gh-star" href="https://github.com/mdevel-uy/fluke" target="_blank" rel="noopener" aria-label="fluke en GitHub"><svg class="gh" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.6.4-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.3 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></svg><span class="hide-xs">GitHub</span><span class="stars" hidden></span></a>
+      <a class="btn btn-primary btn-sm" href="#descargas">Descargar</a>
+    </div>
+  </nav>
+</header>
+
+<main>
+<section class="hero">
+  <div class="motif" aria-hidden="true">
+    <svg class="motif-fluke" viewBox="0 0 100 100" stroke-width="1.25">
+      <path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z"/>
+    </svg>
+  </div>
+
+  <div class="wrap">
+    <div class="hero-copy">
+      <h1>Hey, Fluke.</h1>
+      <p class="ask" aria-hidden="true"><span id="ask">quiero agregar login a la app</span><span class="caret"></span></p>
+      <p class="lead">Le contás a Fluke qué querés. Fluke arma la spec y el plan, los agentes trabajan en paralelo, cada uno en su workspace, y un reviewer revisa cada PR antes de que llegue a vos. El merge lo hacés vos.</p>
+      <div class="ctas">
+        <a class="btn btn-primary" href="#descargas">Descargar gratis</a>
+        <a class="btn btn-ghost gh-star" href="https://github.com/mdevel-uy/fluke" target="_blank" rel="noopener"><svg class="gh" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.6.4-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.3 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></svg>Ver en GitHub<span class="stars" hidden></span></a>
+      </div>
+      <p class="fine">Open source · Apache 2.0 · Corre en tus servidores · Claude Code, Codex, Gemini CLI y más</p>
+    </div>
+
+    <div class="shot">
+      <div class="win">
+        <div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>fluke · mdevel-uy</span></div>
+        <div class="app">
+          <div class="rail" role="tablist" aria-label="Pantallas de fluke" aria-orientation="vertical">
+            <button role="tab" aria-selected="true" aria-controls="s-fluke" data-s="fluke">
+              <svg viewBox="0 0 24 24"><path d="M12 20.5c-4.5-1.6-8.2-6-8.6-11.8-.1-1.6 1.4-2 2.8-.6 3 3.2 5 7 5.8 9.4.8-2.4 2.8-6.2 5.8-9.4 1.4-1.4 2.9-1 2.8.6-.4 5.8-4.1 10.2-8.6 11.8z"/></svg>
+              <span class="tip">Fluke</span>
+            </button>
+            <button role="tab" aria-selected="false" aria-controls="s-issues" data-s="issues">
+              <svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="5" height="16" rx="1"/><rect x="10.5" y="4" width="5" height="10" rx="1"/><rect x="17.5" y="4" width="3" height="13" rx="1"/></svg>
+              <i class="dot"></i><span class="tip">Issues</span>
+            </button>
+            <button role="tab" aria-selected="false" aria-controls="s-dash" data-s="dash">
+              <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>
+              <span class="tip">Dashboard</span>
+            </button>
+            <button role="tab" aria-selected="false" aria-controls="s-prof" data-s="prof">
+              <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18.5 14.8c1.7.8 2.8 2.5 3 5.2"/></svg>
+              <span class="tip">Perfiles</span>
+            </button>
+            <span class="sep"></span>
+            <span aria-hidden="true" style="width:36px;height:36px;display:grid;place-items:center;color:var(--a-dim)">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+            </span>
+          </div>
+
+          <!-- Fluke: la conversación -->
+          <div class="screen on" id="s-fluke" role="tabpanel">
+            <div class="missions">
+              <div class="k amb">Lo esperan · 2</div>
+              <div class="mi sel"><span class="av prog">MP</span><span><b>Merge desde la UI</b><small>Ejecutando · 1 de 5</small></span><i class="pend"></i></div>
+              <div class="mi"><span class="av prog">AL</span><span><b>Alertas de CI en rojo</b><small>En revisión · diseño</small></span><i class="pend"></i></div>
+              <div class="k">En curso</div>
+              <div class="mi"><span class="av prog">DI</span><span><b>Dashboard de impacto</b><small>Planificando · 2 de 6</small></span></div>
+              <div class="mi"><span class="av ok">LC</span><span><b>Login con Enter</b><small>Completa · 3 de 3</small></span></div>
+              <div class="k">Siempre</div>
+              <div class="mi"><span class="av fluke"><svg viewBox="0 0 100 100"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z"/></svg></span><span><b>Fluke (general)</b><small>Avisos de la app</small></span></div>
+            </div>
+            <div class="chat">
+              <div class="chat-h">
+                <span class="av fluke"><svg viewBox="0 0 100 100"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z"/></svg></span>
+                <div><h3>Merge de PRs aprobados desde la UI</h3><div class="k ind">Ejecutando · 1 de 5 · fluke</div></div>
+              </div>
+              <div class="chat-b">
+                <div class="resolve"><span class="k">Para resolver</span><span>PR #805 aprobado, CI en verde</span><span class="abtn hide-sm">Ver PR</span><span class="abtn pri">Mergear</span></div>
+                <div class="msg"><div class="k">Fluke · 13:48</div><p>Armé el plan en cinco issues. El primero, settings de tipo de merge, ya está en PR. Los otros cuatro dependen de él: quedan en espera hasta que lo mergees.</p></div>
+                <div class="ev">2 eventos de la app</div>
+                <div class="msg"><div class="k">Fluke · 14:09</div><p>El reviewer aprobó el #805 en la segunda ronda y el CI pasó. Te lo dejé arriba para que lo mergees cuando quieras; después sigo con el issue 2.</p></div>
+                <div class="me">Dale, y avisame si el 2 necesita diseño.</div>
+                <div class="typing"><i></i><i></i><i></i> Revisando el issue 2</div>
+              </div>
+              <div class="composer"><span>Escribile a Fluke…</span>
+                <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+                <span class="send" style="flex:none"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
+              </div>
+            </div>
+            <div class="plan">
+              <div class="k ind" style="display:flex;justify-content:space-between"><span>Plan</span><span class="low">1 de 5</span></div>
+              <ul class="steps">
+                <li class="done"><b>#801 Settings de tipo de merge</b><small class="amb">aprobado · falta tu merge</small></li>
+                <li class="now"><b>#802 Endpoint con chequeos de CI</b><small class="ind">Fluke lo está revisando</small></li>
+                <li><b>#803 Botón Mergear en la card</b><small class="low">espera diseño</small></li>
+                <li><b>#804 Borrar rama al mergear</b><small class="low">en cola</small></li>
+                <li><b>#806 Tests E2E del merge</b><small class="low">en cola</small></li>
+              </ul>
+              <div class="brief">
+                <div class="k ind" style="margin-bottom:8px">Brief</div>
+                <div class="k">Objetivo</div>
+                <p>Mergear PRs aprobados sin salir de fluke, respetando el tipo de merge del repo.</p>
+                <div class="k">Criterio de aceptación</div>
+                <p>El botón sólo aparece con el PR aprobado y el CI en verde.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Issues: milestones con waves -->
+          <div class="screen pane" id="s-issues" role="tabpanel">
+            <div class="iss">
+              <div class="top">
+                <h3>Issues</h3>
+                <div class="seg"><span>Lista</span><span>Grupos</span><span class="on">Plan</span></div>
+                <span class="help" style="margin-left:auto">1 necesita tu ayuda</span>
+                <span class="slots">Slots 2/3 <i class="on"></i><i class="on"></i><i></i></span>
+                <span class="abtn pri hide-sm">Ejecutar todas</span>
+              </div>
+              <div class="box band">
+                <div class="band-h">
+                  <span class="play"><svg viewBox="0 0 10 10"><path d="M2 1l7 4-7 4z"/></svg></span>
+                  <span><b>Merge de PRs aprobados desde la UI</b><small>Ejecutando · 3 waves, 5 issues</small></span>
+                  <span class="prog" style="--p:20%"><i></i>1/5 mergeados</span>
+                </div>
+                <div class="waves">
+                  <div class="wave"><div class="k"><span>Wave 0</span><span>1/1</span></div>
+                    <div class="card ok"><div class="row"><span>#801</span><span class="grn">aprobado</span></div><p>Settings de tipo de merge y borrado de rama</p><span class="chip">UI</span><span class="chip">BACKEND</span>
+                      <div class="phases" title="TDD · dev · testing · review · merge"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="r"></i></div></div>
+                  </div>
+                  <div class="wave"><div class="k"><span>Wave 1</span><span>0/2</span></div>
+                    <div class="card run"><div class="row"><span>#802</span><span class="ind">review · ronda 2</span></div><p>Endpoint de merge con chequeos de CI</p><span class="chip">BACKEND</span><span class="chip red">P1</span>
+                      <div class="phases"><i class="d"></i><i class="d"></i><i class="d"></i><i class="r"></i><i></i></div></div>
+                    <div class="card dec"><div class="row"><span>#803</span><span class="amb">◆ decisión</span></div><p>Botón Mergear en la card del PR</p><span class="abtn">Decidir ahora</span></div>
+                  </div>
+                  <div class="wave"><div class="k"><span>Wave 2</span><span>0/2</span></div>
+                    <div class="card wait"><div class="row"><span>#804</span><span>espera wave 1</span></div><p>Borrar rama al mergear</p><span class="chip">BACKEND</span></div>
+                    <div class="card wait"><div class="row"><span>#806</span><span>espera wave 1</span></div><p>Tests E2E del flujo de merge</p><span class="chip">QA</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="box band">
+                <div class="band-h">
+                  <span class="play"><svg viewBox="0 0 10 10"><path d="M2 1l7 4-7 4z"/></svg></span>
+                  <span><b>Alertas cuando el CI queda en rojo</b><small>Listo para ejecutar · 2 waves, 3 issues</small></span>
+                  <span class="prog" style="--p:0%"><i></i>0/3 mergeados</span>
+                </div>
+                <div class="waves">
+                  <div class="wave"><div class="k"><span>Wave 0</span><span>0/1</span></div>
+                    <div class="card"><div class="row"><span>#812</span><span class="grn">● listo</span></div><p>Detectar CI rojo en PRs de agentes</p><span class="chip">BACKEND</span></div>
+                  </div>
+                  <div class="wave off"><div class="k"><span>Wave 1</span><span>0/2</span></div></div>
+                  <div class="wave off"><div class="k"><span>Wave 2</span><span>—</span></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dashboard -->
+          <div class="screen pane" id="s-dash" role="tabpanel">
+            <div class="dash">
+              <div class="top"><h3>Dashboard</h3><span class="live">en vivo</span></div>
+              <div class="kpis">
+                <div class="box kpi"><div class="k">Cupos</div><strong>3 / 4</strong><small>2 tareas en cola</small></div>
+                <div class="box kpi"><div class="k">Atención</div><strong class="amb">2</strong><small>1 pregunta, 1 tope</small></div>
+                <div class="box kpi"><div class="k">Resueltos hoy</div><strong>3 tickets</strong><small>12 h ahorradas</small></div>
+                <div class="box kpi"><div class="k">Repos activos</div><strong>2 de 3</strong><small>fluke, canon</small></div>
+                <div class="box kpi"><div class="k">Costo hoy</div><strong>$11.30</strong><small>$3.77 por ticket</small></div>
+              </div>
+              <div class="box att">
+                <div style="display:flex;gap:8px;align-items:center"><b style="font-weight:600">Necesita tu atención</b><span class="chip">2</span></div>
+                <div class="att-r"><span class="chip amb">PREGUNTA</span><span><b class="m">#709</b> <span class="low">fluke ·</span> El agente pregunta si el límite se mide por mes o por ciclo de facturación.</span><span class="abtn warn">Responder</span></div>
+                <div class="att-r"><span class="chip ind">TOPE DE REVIEW</span><span><b class="m">#698</b> <span class="low">fluke ·</span> 3 de 3 rondas de review sin aprobar. PR #701 espera tu decisión.</span><span class="abtn hide-sm">Ver PR #701</span></div>
+              </div>
+              <div class="box" style="overflow:hidden">
+                <div style="display:flex;gap:8px;align-items:center;padding:12px 12px 4px"><b style="font-weight:600">En curso</b><span class="live">3 de 4 cupos</span></div>
+                <table>
+                  <thead><tr><th class="k">Perfil</th><th class="k">Issue</th><th class="k hide-sm">Fase</th><th class="k hide-sm">Plan</th><th class="k">Costo</th></tr></thead>
+                  <tbody>
+                    <tr><td>Backend</td><td><b class="m">#802</b> <span class="low">Endpoint de merge</span></td><td class="hide-sm ind">review · ronda 2</td><td class="hide-sm"><div class="bar-p"><i style="width:75%"></i></div></td><td class="m amb">$2.10</td></tr>
+                    <tr><td>Frontend</td><td><b class="m">#795</b> <span class="low">Tabs del brief</span></td><td class="hide-sm">desarrollo</td><td class="hide-sm"><div class="bar-p"><i style="width:40%"></i></div></td><td class="m amb">$1.45</td></tr>
+                    <tr><td>QA</td><td><b class="m">#790</b> <span class="low">Login con Enter</span></td><td class="hide-sm">testing</td><td class="hide-sm"><div class="bar-p"><i style="width:90%"></i></div></td><td class="m amb">$0.62</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Perfiles -->
+          <div class="screen pane" id="s-prof" role="tabpanel">
+            <div class="prof">
+              <div class="top"><h3>Perfiles</h3><span class="low" style="font-size:12px">Cada fase la toma una instancia nueva del perfil y se descarta al terminar.</span></div>
+              <div class="pgrid">
+                <div class="box pc"><div class="pc-h"><span class="av">FS</span><span><b>Fullstack</b><small>Claude Code · Opus</small></span></div><p>Toma issues que cruzan API y UI. Arma su propio plan dentro de la fase de desarrollo.</p><div class="pc-f"><span class="inst"><i class="on"></i><i></i><i></i></span><span>PAT propio</span></div></div>
+                <div class="box pc"><div class="pc-h"><span class="av">BE</span><span><b>Backend</b><small>Codex · gpt-5.6</small></span></div><p>Rust, migraciones y endpoints. Escribe los tests antes cuando hay TDD.</p><div class="pc-f"><span class="inst"><i class="on"></i><i></i><i></i></span><span>PAT del usuario</span></div></div>
+                <div class="box pc"><div class="pc-h"><span class="av">FE</span><span><b>Frontend</b><small>Claude Code · Sonnet</small></span></div><p>Componentes y vistas siguiendo el design system del repo.</p><div class="pc-f"><span class="inst"><i class="on"></i><i></i><i></i></span><span>PAT del usuario</span></div></div>
+                <div class="box pc"><div class="pc-h"><span class="av">RV</span><span><b>Reviewer</b><small>Claude Code · Opus</small></span><span class="chip ind">otra cuenta</span></div><p>Revisa cada PR por rondas con el CI como juez. Aprueba o pide cambios.</p><div class="pc-f"><span class="inst"><i class="on"></i><i></i><i></i></span><span>PAT propio</span></div></div>
+                <div class="box pc"><div class="pc-h"><span class="av">AN</span><span><b>Analyst</b><small>Claude Code · Opus</small></span></div><p>Despieza el brief en issues, milestones y waves.</p><div class="pc-f"><span class="inst"><i></i><i></i><i></i></span><span>PAT propio</span></div></div>
+                <div class="box pc"><div class="pc-h"><span class="av">QA</span><span><b>QA</b><small>Gemini CLI</small></span></div><p>Prueba el flujo completo antes del review y reporta lo que no anda.</p><div class="pc-f"><span class="inst"><i class="on"></i><i></i><i></i></span><span>PAT del usuario</span></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="hint">Tocá el rail para recorrer la app.</p>
+  </div>
+</section>
+
+<div class="south">
+
+  <section class="agents-sec">
+    <div class="wrap">
+      <p>Funciona con los agentes que ya pagás</p>
+      <div class="agents">
+        <span>Claude Code</span><span>Codex</span><span>Gemini CLI</span><span>GitHub Copilot</span><span>Cursor</span><span>Amp</span><span>OpenCode</span><span>Qwen Code</span><span>Droid</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="jarvis">
+    <div class="wrap jarvis">
+      <div>
+        <div class="sec-head">
+          <h2>Fluke, tu Jarvis</h2>
+          <p class="sub">Un solo interlocutor para todo tu desarrollo. No tenés que acordarte de qué agente hace qué ni revisar cada sesión: le hablás a Fluke.</p>
+        </div>
+        <div class="powers">
+          <div>
+            <b>Omnisciente</b>
+            <p>Ve cada misión, issue, PR, corrida de CI y pregunta de los agentes. Se entera de los eventos en el momento y te avisa cuando algo te necesita.</p>
+          </div>
+          <div>
+            <b>Omnipotente</b>
+            <p>Hace todo lo que vos podés hacer en la app: arma misiones, aprueba briefs, reintenta, reasigna, destraba. Lo que no tiene vuelta, como un merge, te lo confirma antes.</p>
+          </div>
+        </div>
+      </div>
+      <div class="mini">
+        <div class="ev">Evento · CI en rojo</div>
+        <div class="msg"><div class="k">Fluke · 16:20</div><p>El CI del #812 quedó en rojo en los tests de integración. Ya le pasé el log al Backend para que lo corrija; si en dos intentos no sale, te aviso.</p></div>
+        <div class="me">¿Cómo vamos con la misión del merge?</div>
+        <div class="msg"><div class="k">Fluke · 16:21</div><p>Tres de cinco issues mergeados. El #803 espera tu decisión sobre el botón, y el #805 está aprobado con el CI en verde. ¿Lo mergeo?</p></div>
+        <div class="opts"><span class="on">Sí, mergealo</span><span>Primero lo miro</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="como">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>Desarrollo guiado por especificación</h2>
+        <p class="sub">fluke trabaja con SDD: nada se programa sin una spec aprobada. Vos decidís qué; fluke se ocupa del cómo, con una persona en cada compuerta que importa.</p>
+      </div>
+      <div class="feats">
+        <div class="feat">
+          <div class="feat-copy">
+            <h3>Primero la spec, después el código</h3>
+            <p>Le contás a Fluke qué querés. Pregunta lo que no está claro y arma la spec: objetivo, alcance, criterio de aceptación y qué etapas lleva cada ítem. Nada arranca hasta que la aprobás.</p>
+            <ol class="sdd"><li class="done">Brief</li><li class="now">Spec</li><li>Plan</li><li>Tareas</li></ol>
+          </div>
+          <div class="mini">
+            <div class="me" style="align-self:flex-end">Quiero mergear los PRs aprobados sin salir de fluke.</div>
+            <div class="msg"><div class="k">Fluke · 10:02</div><p>¿Respetamos el tipo de merge de cada repo o usamos siempre squash?</p></div>
+            <div class="opts"><span class="on">El de cada repo</span><span>Siempre squash</span><span>Preguntame cada vez</span></div>
+            <div class="brief-c">
+              <div class="k ind" style="margin-bottom:8px">Brief</div>
+              <div class="k">Objetivo</div><p>Mergear PRs aprobados desde la UI, respetando el tipo de merge del repo.</p>
+              <div class="k">Criterio de aceptación</div><p style="margin-bottom:12px">El botón sólo aparece con el PR aprobado y el CI en verde.</p>
+              <span class="abtn pri">Aprobar brief</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="feat">
+          <div class="feat-copy">
+            <h3>El trabajo se despieza en milestones y waves</h3>
+            <p>El Analyst parte el brief en issues de GitHub y los ordena: lo que puede ir en paralelo va en la misma wave. Cada fase la toma una instancia nueva del perfil que corresponde.</p>
+            <ul><li>TDD, desarrollo, testing y review por issue</li><li>Slots globales: vos decidís cuántos agentes a la vez</li><li>Las decisiones pendientes frenan solo lo que depende de ellas</li></ul>
+          </div>
+          <div class="mini">
+            <div class="band-h" style="margin:0"><span class="play"><svg viewBox="0 0 10 10"><path d="M2 1l7 4-7 4z"/></svg></span><span><b>Merge de PRs aprobados</b><small>Ejecutando · 3 waves, 5 issues</small></span></div>
+            <div class="waves mini-waves">
+              <div class="wave"><div class="k"><span>Wave 0</span><span>1/1</span></div><div class="card ok"><div class="row"><span>#801</span></div><p>Settings de merge</p></div></div>
+              <div class="wave"><div class="k"><span>Wave 1</span><span>0/2</span></div><div class="card run"><div class="row"><span>#802</span></div><p>Endpoint con CI</p></div><div class="card dec"><div class="row"><span>#803</span><span class="amb">◆</span></div><p>Botón Mergear</p></div></div>
+              <div class="wave"><div class="k"><span>Wave 2</span><span>0/2</span></div><div class="card wait"><div class="row"><span>#804</span></div><p>Borrar rama</p></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="feat">
+          <div class="feat-copy">
+            <h3>Cada agente en su propio workspace</h3>
+            <p>Cada issue tiene su rama, su worktree y su contenedor. Los agentes trabajan en paralelo sin pisarse, y si uno rompe algo no toca a los demás ni a tu checkout.</p>
+            <ul><li>Diff, logs, editor y terminal de cada workspace</li><li>Los worktrees se limpian solos al archivar</li></ul>
+          </div>
+          <div class="mini">
+            <div class="ws">
+              <div class="ws-r"><span class="dot run"></span><span><b class="m">fk/802-endpoint-merge</b><small>Backend · review, ronda 2</small></span><span class="chip">:3101</span></div>
+              <div class="ws-r"><span class="dot run"></span><span><b class="m">fk/795-tabs-brief</b><small>Frontend · desarrollo</small></span><span class="chip">:3102</span></div>
+              <div class="ws-r"><span class="dot run"></span><span><b class="m">fk/790-login-enter</b><small>QA · testing</small></span><span class="chip">:3103</span></div>
+              <div class="ws-r off"><span class="dot"></span><span><b class="m">fk/801-settings-merge</b><small>Mergeado · worktree limpiado</small></span><span class="chip">—</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="feat">
+          <div class="feat-copy">
+            <h3>Cada PR pasa por review antes de llegar a vos</h3>
+            <p>Un Reviewer con otra cuenta de GitHub revisa por rondas y el CI de tu repo es el único juez. Si pide cambios, el autor los hace y vuelve a revisión.</p>
+            <ul><li>Re-review automático con cada commit nuevo</li><li>Tope de rondas configurable: al llegar, decidís vos</li></ul>
+          </div>
+          <div class="mini">
+            <div style="display:flex;justify-content:space-between;align-items:center"><b class="m">PR #805</b><span class="chip ind">Reviewer · otra cuenta</span></div>
+            <div class="rounds">
+              <div class="round"><i class="red"></i><div><b>Ronda 1 · pide cambios</b><small>"Falta chequear que el CI esté en verde antes de habilitar el botón."</small></div></div>
+              <div class="round"><i class="ind"></i><div><b>Backend sube 2 commits</b><small>fix: validar checks requeridos · test: CI rojo bloquea el merge</small></div></div>
+              <div class="round"><i class="grn"></i><div><b>Ronda 2 · aprobado</b><small class="grn">CI en verde · 14 de 14 checks</small></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="feat">
+          <div class="feat-copy">
+            <h3>El merge es tuyo</h3>
+            <p>Con veredicto aprobado y CI en verde, mergeás desde fluke o desde GitHub. Si hay conflictos o el CI está en rojo, el botón queda deshabilitado y te dice por qué.</p>
+          </div>
+          <div class="mini">
+            <div class="resolve"><span class="k">Para resolver</span><span>PR #805 aprobado, CI en verde</span><span class="abtn pri">Mergear</span></div>
+            <div class="dialog">
+              <h4>¿Mergear el PR #805 en main?</h4>
+              <span class="low">Merge commit · se borra la rama <span class="m">fk/merge-ui</span></span>
+              <div class="act"><span class="abtn">Cancelar</span><span class="abtn pri">Mergear</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="ciclo">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>El ciclo de cada issue</h2>
+        <p class="sub">Desarrollo, testing, review y merge están siempre. El resto se suma según lo que haga falta: Fluke te lo pregunta al armar la spec.</p>
+      </div>
+      <div class="tpls" role="group" aria-label="Ejemplos de ciclo">
+        <button aria-pressed="true" data-on="arch tdd dev test review sec docs merge">Feature nueva</button>
+        <button aria-pressed="false" data-on="tdd dev test review merge">Bug</button>
+        <button aria-pressed="false" data-on="design dev test review docs merge">Con diseño</button>
+        <button aria-pressed="false" data-on="dev test review merge">Cambio chico</button>
+      </div>
+      <ol class="cycle">
+        <li data-p="design"><b>Diseño</b><small>Designer</small><em>opcional</em></li>
+        <li data-p="arch"><b>Arquitectura</b><small>Architect</small><em>opcional</em></li>
+        <li data-p="tdd"><b>Tests primero</b><small>QA · TDD</small><em>opcional</em></li>
+        <li data-p="dev" class="fixed"><b>Desarrollo</b><small>Frontend, Backend, DevOps…</small></li>
+        <li data-p="test" class="fixed"><b>Testing</b><small>QA</small></li>
+        <li data-p="review" class="fixed"><b>Review</b><small>Reviewer · rondas configurables</small><span class="back">↺ vuelve a Desarrollo</span></li>
+        <li data-p="sec"><b>Revisiones extra</b><small>Calidad · Seguridad</small><em>opcional</em></li>
+        <li data-p="docs"><b>Documentación</b><small>Docs</small><em>opcional</em></li>
+        <li data-p="merge" class="fixed you"><b>Merge</b><small>Vos</small></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      <div class="sec-head c">
+        <h2>fluke se construye con fluke</h2>
+        <p class="sub">El repositorio de fluke lo trabajan sus propios agentes, con el mismo loop de review y el merge en manos de una persona.</p>
+      </div>
+      <div class="proof">
+        <div class="surface"><strong>151</strong><p>PRs mergeados</p></div>
+        <div class="surface"><strong>234</strong><p>commits</p></div>
+        <div class="surface"><strong>81</strong><p>reviews automáticas del Reviewer</p></div>
+        <div class="surface"><strong>18 min</strong><p>de mediana entre que se abre un PR y se mergea</p></div>
+      </div>
+      <p class="ver">Repositorio de fluke, últimos 30 días (8 de septiembre al 8 de octubre de 2026).</p>
+    </div>
+  </section>
+
+  <section class="sec" id="open-source">
+    <div class="wrap">
+      <div class="sec-head c">
+        <h2>Gratis y open source</h2>
+        <p class="sub">fluke es software libre bajo licencia Apache 2.0. Lo descargás, lo corrés donde quieras y no pagás nada: lo único que usás es tu suscripción del agente de IA.</p>
+      </div>
+      <div class="oss">
+        <div class="surface">
+          <svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V7z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>
+          <b>Licencia Apache 2.0</b>
+          <p>Usalo, modificalo y distribuilo, también en tu empresa y en productos comerciales.</p>
+        </div>
+        <div class="surface">
+          <svg viewBox="0 0 24 24"><path d="M9 18l-6-6 6-6M15 6l6 6-6 6"/></svg>
+          <b>Código a la vista</b>
+          <p>Todo lo que corre en tu servidor está en GitHub. Auditalo antes de darle acceso a tus repos.</p>
+        </div>
+        <div class="surface">
+          <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M18 11.5c0 3-3 4-6 4.5"/></svg>
+          <b>Contribuí</b>
+          <p>Reportá un bug, proponé una mejora o mandá un PR. Cada PR pasa por el mismo CI que el resto del código.</p>
+        </div>
+      </div>
+      <div class="ctas">
+        <a class="btn btn-primary gh-star" href="https://github.com/mdevel-uy/fluke" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
+          Dale una estrella en GitHub<span class="stars" hidden></span>
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/mdevel-uy/fluke/issues/new" target="_blank" rel="noopener">Reportar un issue</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="onprem">
+    <div class="wrap onprem">
+      <div>
+        <div class="sec-head">
+          <h2>En tus servidores, no en los nuestros</h2>
+          <p class="sub">fluke corre en tu VPS, tu EC2 o tu servidor. Sin backend en la nube, sin login externo, sin telemetría.</p>
+        </div>
+        <ul class="checks">
+          <li><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg><span>Updates sin sustos<small>update.sh baja la versión nueva, hace backup y vuelve atrás solo si algo falla.</small></span></li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg><span>Observabilidad incluida<small>Métricas Prometheus, dashboards y alertas listos para usar.</small></span></li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg><span>Acceso solo por tu red<small>Escucha en loopback detrás de tu proxy, o con HTTPS dentro de tu tailnet.</small></span></li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg><span>Tu suscripción, tus claves<small>Usás tu cuenta de Claude, Codex o el agente que tengas. No revendemos tokens.</small></span></li>
+        </ul>
+      </div>
+      <div class="term">
+        <div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>/opt/fluke</span></div>
+<pre><span class="c"># Linux x86_64 con Docker</span>
+<span class="p">$</span> sudo mkdir -p /opt/fluke &amp;&amp; cd /opt/fluke
+<span class="p">$</span> cp .env.example .env &amp;&amp; vi .env
+<span class="p">$</span> ./update.sh
+<span class="c">✓ imagen ghcr.io/mdevel-uy/fluke:2.0.0
+✓ backup de fk-home
+✓ fluke escuchando en 127.0.0.1:3000</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="descargas">
+    <div class="wrap">
+      <div class="sec-head c">
+        <h2>Descargá fluke</h2>
+        <p class="sub">Gratis. La app de escritorio para tu máquina, o el bundle on-premises para tu equipo.</p>
+      </div>
+      <div class="dl">
+        <div class="surface" data-dl>
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 12h18M12 4v16"/></svg>
+          <b>Windows</b><small>x64 · fluke_2.0.0_x64-setup.exe</small>
+          <a class="btn btn-primary btn-sm" href="https://github.com/mdevel-uy/fluke/releases/download/desktop-v2.0.0/fluke_2.0.0_x64-setup.exe">Descargar</a>
+        </div>
+        <div class="surface" data-dl>
+          <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg>
+          <b>macOS</b><small>Apple Silicon · fluke_2.0.0_aarch64.dmg</small>
+          <a class="btn btn-primary btn-sm" href="https://github.com/mdevel-uy/fluke/releases/download/desktop-v2.0.0/fluke_2.0.0_aarch64.dmg">Descargar</a>
+        </div>
+        <div class="surface">
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>
+          <b>Servidor</b><small>Linux · Docker · ghcr.io/mdevel-uy/fluke</small>
+          <a class="btn btn-ghost btn-sm" href="#onprem">Ver instalación</a>
+        </div>
+      </div>
+      <p class="ver">Gratis · <span id="ver">Versión 2.0.0 · 4 de octubre de 2026</span> · <a href="#changelog" style="text-decoration:underline">Qué cambió</a> · <a href="https://github.com/mdevel-uy/fluke/releases" target="_blank" rel="noopener" style="text-decoration:underline">Todas las versiones</a></p>
+    </div>
+  </section>
+
+  <section class="sec" id="changelog">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>Changelog</h2>
+        <p class="sub">Lo último que salió.</p>
+      </div>
+      <div class="log">
+        <div class="surface rel">
+          <div><b>2.0.0</b><time datetime="2026-10-04">4 oct 2026</time></div>
+          <ul>
+            <li><strong>Un chat por misión</strong>, con un solo Fluke que las conoce todas.</li>
+            <li>Perfiles especialistas: Architect, DevOps, Docs, Code Quality y Security.</li>
+            <li>Tipo de merge y borrado de rama configurables por repo.</li>
+            <li>La UI reacciona a los eventos al instante, sin polling.</li>
+          </ul>
+        </div>
+        <div class="surface rel">
+          <div><b>0.9.0</b><time datetime="2026-09-26">26 sep 2026</time></div>
+          <ul>
+            <li><strong>mkanban pasa a llamarse fluke.</strong> Los datos se migran solos.</li>
+            <li>Plan de ejecución por milestones y waves.</li>
+            <li>El panel de impacto cuenta tareas resueltas, no issues cerrados.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>Preguntas frecuentes</h2>
+      </div>
+      <div class="faq">
+        <details class="surface"><summary>¿fluke es gratis?</summary><p>Sí. Es open source bajo licencia Apache 2.0: lo descargás, lo usás y lo modificás sin pagar nada, también en tu empresa.</p></details>
+        <details class="surface"><summary>¿Tengo que pagar la IA aparte?</summary><p>Sí. fluke usa tu suscripción de Claude Code, Codex o el agente que ya tengas. No revendemos tokens ni cobramos por uso.</p></details>
+        <details class="surface"><summary>¿Fluke mergea solo?</summary><p>No. El merge es siempre de una persona. Fluke puede mergear un PR si se lo pedís, y siempre te pide confirmación antes.</p></details>
+        <details class="surface"><summary>¿Qué pasa si un agente se tranca?</summary><p>La card queda en rojo y aparece en "Necesita tu atención", con lo que pasó, lo que ya se intentó y la pregunta del agente. Desde ahí lo destrabás.</p></details>
+        <details class="surface"><summary>¿Mi código pasa por sus servidores?</summary><p>No. fluke corre en tu infraestructura. Lo único que sale es lo que tu agente le manda a su proveedor, igual que si lo usaras en tu terminal.</p></details>
+        <details class="surface"><summary>¿Qué necesito para instalarlo?</summary><p>Un Linux x86_64 con Docker y salida HTTPS hacia tu proveedor de IA, GitHub, npm y GHCR. Para uso personal alcanza con la app de escritorio.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="wrap">
+      <h2>Que la próxima salga bien.</h2>
+      <p class="sub">Instalalo hoy sobre uno de tus repos. Es gratis.</p>
+      <div class="ctas">
+        <a class="btn btn-primary" href="#descargas">Descargar gratis</a>
+        <a class="btn btn-ghost gh-star" href="https://github.com/mdevel-uy/fluke" target="_blank" rel="noopener"><svg class="gh" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.6.4-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.3 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></svg>Ver en GitHub<span class="stars" hidden></span></a>
+      </div>
+    </div>
+  </section>
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="logo" href="#" aria-label="fluke, inicio"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z"/></svg>fluke</a>
+    <nav aria-label="Pie"><a href="#como">Cómo funciona</a><a href="#onprem">On-premises</a><a href="#descargas">Descargas</a><a href="#changelog">Changelog</a><a href="https://github.com/mdevel-uy/fluke#readme" target="_blank" rel="noopener">Docs</a><a href="https://github.com/mdevel-uy/fluke" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/mdevel-uy/fluke/blob/main/LICENSE" target="_blank" rel="noopener">Licencia Apache 2.0</a><a href="https://github.com/mdevel-uy/fluke/blob/main/CONTRIBUTORS.md" target="_blank" rel="noopener">Contribuir</a><a href="https://github.com/mdevel-uy/fluke/blob/main/CODE-OF-CONDUCT.md" target="_blank" rel="noopener">Código de conducta</a></nav>
+    <span class="geo">Hecho en Uruguay · 34°54′S 56°10′O · © 2026 mdevel</span>
+  </div>
+</footer>
+
+
+<script>
+const root = document.documentElement;
+
+// Loader: se va cuando cargaron la página y las fuentes, o a los 5 s como tope.
+const loaded = new Promise(r => document.readyState === 'complete' ? r() : addEventListener('load', r, { once: true }));
+Promise.race([
+  Promise.all([loaded, document.fonts ? document.fonts.ready : null]),
+  new Promise(r => setTimeout(r, 5000)),
+]).then(() => {
+  root.classList.add('ready');
+  document.getElementById('loader').setAttribute('aria-busy', 'false');
+});
+const store = {
+  get: k => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+};
+
+// Tema: claro por defecto, oscuro como toggle.
+if (store.get('theme') === 'dark') root.dataset.theme = 'dark';
+document.getElementById('theme').onclick = () => {
+  root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
+  store.set('theme', root.dataset.theme);
+};
+
+// Rail de la captura: cada botón muestra su pantalla.
+const tabs = [...document.querySelectorAll('.rail [data-s]')];
+const show = s => {
+  tabs.forEach(t => t.setAttribute('aria-selected', t.dataset.s === s));
+  document.querySelectorAll('.screen').forEach(p => p.classList.toggle('on', p.id === 's-' + s));
+};
+tabs.forEach((t, i) => {
+  t.onclick = () => show(t.dataset.s);
+  t.onkeydown = e => {
+    const d = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+    if (!d) return;
+    e.preventDefault();
+    const n = tabs[(i + d + tabs.length) % tabs.length];
+    n.focus(); show(n.dataset.s);
+  };
+});
+
+// Estrellas del repo en vivo. Si la API de GitHub no responde, los botones quedan sin número.
+fetch('https://api.github.com/repos/mdevel-uy/fluke')
+  .then(r => r.ok ? r.json() : Promise.reject())
+  .then(({ stargazers_count: n }) => {
+    if (!n) return; // con 0 estrellas el número resta más de lo que suma
+    const txt = n >= 1000 ? (n / 1000).toFixed(1).replace('.0', '') + 'k' : String(n);
+    document.querySelectorAll('.gh-star .stars').forEach(s => { s.textContent = '★ ' + txt; s.hidden = false; });
+  })
+  .catch(() => {});
+
+// Descargas: una tarjeta por instalador del último release desktop-v* estable.
+// Si la API no responde, quedan las tarjetas escritas en el HTML.
+const ICONS = {
+  win: '<rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 12h18M12 4v16"/>',
+  mac: '<rect x="2" y="4" width="20" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/>',
+  linux: '<rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M7 9l3 3-3 3M13 15h4"/>',
+};
+// Terminación del archivo → plataforma, en el orden en que se muestran. Un tipo de instalador nuevo es una línea más.
+const PLATFORMS = [
+  ['_x64-setup.exe', 'Windows', 'x64', 'win'],
+  ['_aarch64.dmg', 'macOS', 'Apple Silicon', 'mac'],
+  ['_x64.dmg', 'macOS', 'Intel', 'mac'],
+  ['_amd64.deb', 'Ubuntu', 'x64 · .deb', 'linux'],
+  ['_amd64.AppImage', 'Linux', 'x64 · AppImage', 'linux'],
+];
+fetch('https://api.github.com/repos/mdevel-uy/fluke/releases?per_page=20')
+  .then(r => r.ok ? r.json() : Promise.reject())
+  .then(list => {
+    const releases = list.filter(r => !r.draft && r.tag_name.startsWith('desktop-v'));
+    showDownloads(releases.find(r => !r.prerelease));
+    showChangelog(releases.slice(0, 3));
+  })
+  .catch(() => {});
+
+const version = rel => rel.tag_name.slice('desktop-v'.length);
+
+function showDownloads(rel) {
+  if (!rel) return;
+  const cards = PLATFORMS.flatMap(([end, name, arch, icon]) => {
+    const asset = rel.assets.find(a => a.name.endsWith(end));
+    if (!asset) return [];
+    const card = document.createElement('div');
+    card.className = 'surface';
+    card.dataset.dl = '';
+    card.innerHTML = `<svg viewBox="0 0 24 24">${ICONS[icon]}</svg><b>${name}</b><small>${arch} · ${asset.name}</small>`
+      + `<a class="btn btn-primary btn-sm" href="${asset.browser_download_url}">Descargar</a>`;
+    return [card];
+  });
+  if (!cards.length) return;
+  document.querySelectorAll('.dl [data-dl]').forEach(c => c.remove());
+  document.querySelector('.dl').prepend(...cards);
+  const date = new Date(rel.published_at).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
+  document.getElementById('ver').textContent = `Versión ${version(rel)} · ${date}`;
+}
+
+// Changelog: las viñetas del texto de cada release. Lo que viene desde "Instalación" (lo agrega el
+// workflow) no es changelog y se corta. Un release sin viñetas muestra el link a GitHub.
+const inlineMd = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  .replace(/`(.+?)`/g, '<code>$1</code>')
+  .replace(/\[(.+?)\]\((https?:[^)\s"]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="text-decoration:underline">$1</a>');
+const releaseNotes = body => (body || '').replace(/\r\n/g, '\n').split(/^#*\s*Instalaci[oó]n/m)[0]
+  .split('\n').filter(l => /^[-*] /.test(l)).map(l => l.slice(2).trim());
+
+function showChangelog(releases) {
+  if (!releases.length) return;
+  document.querySelector('#changelog .log').innerHTML = releases.map(rel => {
+    const date = new Date(rel.published_at);
+    const items = releaseNotes(rel.body);
+    const list = items.length
+      ? items.map(i => `<li>${inlineMd(i)}</li>`).join('')
+      : `<li><a href="${rel.html_url}" target="_blank" rel="noopener" style="text-decoration:underline">Ver el release en GitHub</a></li>`;
+    return `<div class="surface rel"><div><b>${inlineMd(version(rel))}</b>`
+      + `<time datetime="${rel.published_at.slice(0, 10)}">${date.toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '').replace('sept', 'sep')}</time>`
+      + (rel.prerelease ? '<span class="tag">prueba</span>' : '') + `</div><ul>${list}</ul></div>`;
+  }).join('');
+}
+
+// Hero: pedidos a Fluke que se escriben y se borran. Con movimiento reducido queda el primero fijo.
+const ASKS = [
+  'quiero agregar login a la app',
+  'quiero resolver el bug #223',
+  'sumá pagos con Mercado Pago al checkout',
+  'migrá la base de MySQL a Postgres',
+  'escribí tests para el módulo de facturación',
+  'armá un dashboard de ventas por mes',
+  'actualizá React a la 19 sin romper nada',
+  'fijate por qué el deploy tarda 20 minutos',
+  'traducí la app al inglés',
+  'agregá modo oscuro a la configuración',
+];
+const ask = document.getElementById('ask');
+if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  let i = 0, n = ASKS[0].length, typing = false;
+  const tick = () => {
+    n += typing ? 1 : -1;
+    ask.textContent = ASKS[i].slice(0, n);
+    if (typing && n === ASKS[i].length) { typing = false; return setTimeout(tick, 2200); }
+    if (!typing && n === 0) { i = (i + 1) % ASKS.length; typing = true; return setTimeout(tick, 400); }
+    setTimeout(tick, typing ? 45 + Math.random() * 50 : 22);
+  };
+  setTimeout(tick, 2200);
+}
+
+// Ciclo: cada ejemplo enciende sus etapas; las que no lleva quedan punteadas.
+const tplBtns = document.querySelectorAll('.tpls button');
+const phases = document.querySelectorAll('.cycle li');
+const showTpl = btn => {
+  const on = btn.dataset.on.split(' ');
+  tplBtns.forEach(b => b.setAttribute('aria-pressed', b === btn));
+  phases.forEach(li => li.classList.toggle('skip', !on.includes(li.dataset.p)));
+};
+tplBtns.forEach(b => b.onclick = () => showTpl(b));
+showTpl(tplBtns[0]);
+
+// Mapa: la ballena avanza por la ruta según el scroll y la cámara la sigue.
+// Arranca frente a Rocha con zoom sobre Uruguay, se aleja al dejar el hero y otro poco al final.
+// Textos y ballena compensan el zoom para mantener su tamaño en pantalla.
+const world = document.getElementById('world');
+const cam = document.getElementById('cam');
+const route = document.getElementById('route');
+const whale = document.getElementById('whale');
+const total = route.getTotalLength();
+// Largo de la ruta en el punto más cercano a (x, y).
+const nearestL = ([x, y]) => {
+  let L = 0;
+  for (let l = 0, best = Infinity; l < total; l += 10) {
+    const p = route.getPointAtLength(l), d = (p.x - x) ** 2 + (p.y - y) ** 2;
+    if (d < best) { best = d; L = l; }
+  }
+  return L;
+};
+const L0 = nearestL([2556, 1600]); // frente a Cabo Polonio
+
+// Barra lateral: cada parada se ubica según dónde cae sobre la ruta, con un mínimo de aire entre paradas.
+const stopsLine = document.querySelector('.stops-line');
+const railWhale = document.querySelector('.stops-whale');
+const stops = [...document.querySelectorAll('#stops li')]
+  .map(el => {
+    const [x, y] = el.dataset.at.split(',').map(Number);
+    const dot = document.querySelector(`#world .coords circle[cx="${x}"][cy="${y}"]`);
+    return { el, dot, L: nearestL([x, y]) };
+  })
+  .sort((a, b) => a.L - b.L);
+let anchors = [];
+const layoutStops = () => {
+  const H = stopsLine.clientHeight, gap = innerWidth < 1400 ? 18 : 46;
+  let prev = -Infinity;
+  for (const st of stops) { st.y = Math.max(st.L / total * H, prev + gap); prev = st.y; st.el.style.top = st.y + 'px'; }
+  anchors = [{ L: 0, y: 0 }, ...stops, { L: total, y: Math.max(H, prev) }];
+};
+// Posición en la barra para un largo de ruta: interpola entre paradas.
+const railY = l => {
+  const i = anchors.findIndex(a => a.L >= l);
+  if (i <= 0) return 0;
+  const a = anchors[i - 1], b = anchors[i];
+  return a.y + (b.y - a.y) * (l - a.L) / (b.L - a.L || 1);
+};
+layoutStops();
+
+// Dato de viaje. El km es un mojón: depende solo de dónde está la ballena, igual al ir y al volver.
+// El día y la fecha dependen del sentido: rumbo sur es el viaje a alimentarse (sale de Santa Catarina en noviembre),
+// rumbo norte el viaje a parir (sale de Georgias en mayo).
+// ponytail: velocidad constante y sin escalas; los meses que pasan en Valdés o Brasil no se cuentan.
+const KM_PER_UNIT = 111 / 200; // 200 unidades del mapa = 1° de latitud = 111 km
+const KM_PER_DAY = 80;
+const totalKm = total * KM_PER_UNIT;
+const live = document.querySelector('.stops-live');
+const fmtKm = n => (Math.round(n / 10) * 10).toLocaleString('es-UY');
+const fmtDate = new Intl.DateTimeFormat('es-UY', { day: 'numeric', month: 'long' });
+const readout = (l, dir) => {
+  const km = l * KM_PER_UNIT;
+  const south = dir > 0;
+  const days = Math.round((south ? km : totalKm - km) / KM_PER_DAY);
+  const date = new Date(2026, south ? 10 : 4, 1 + days);
+  return `km ${fmtKm(km)} de ${fmtKm(totalKm)}\n`
+    + `día ${days} desde ${south ? 'Santa Catarina' : 'Georgias'}\n`
+    + `${fmtDate.format(date)} · rumbo ${south ? 'sur ↓' : 'norte ↑'}`;
+};
+const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+let ticking = false, lastL = null, dir = 1; // dir: 1 baja por la ruta, -1 vuelve
+const frame = () => {
+  ticking = false;
+  // Celular: cámara fija sobre la costa atlántica uruguaya (de Montevideo al Chuy), sin seguir el scroll.
+  if (innerWidth <= 720) {
+    const s = innerWidth * 0.95 / 480; // ~480 unidades de mapa entre Montevideo y el Chuy
+    cam.setAttribute('transform', `translate(${innerWidth / 2 - 2410 * s} ${innerHeight * 0.5 - 1600 * s}) scale(${s})`);
+    return;
+  }
+  const max = document.documentElement.scrollHeight - innerHeight;
+  const p = max > 0 ? Math.min(1, scrollY / max) : 0;
+  const l = L0 + p * (total - L0 - 1);
+  if (lastL !== null && Math.abs(l - lastL) > 0.5) dir = l > lastL ? 1 : -1;
+  lastL = l;
+  const a = route.getPointAtLength(l), b = route.getPointAtLength(Math.min(total, l + 4));
+  const s = 1.5 - 0.9 * smoothstep(0, 0.2, p) - 0.2 * smoothstep(0.7, 1, p);
+  world.style.setProperty('--fs', 13.5 / s + 'px');
+  // En escritorio la ballena queda a la derecha del texto centrado del hero (que mide ~620px), para no pisarlo.
+  const ax = innerWidth < 720 ? innerWidth * 0.55 : Math.max(innerWidth * 0.64, innerWidth / 2 + 340), ay = innerHeight * 0.46;
+  cam.setAttribute('transform', `translate(${ax - a.x * s} ${ay - a.y * s}) scale(${s})`);
+  // El pedúnculo apunta hacia donde avanza; al scrollear para arriba la ballena se da vuelta.
+  const ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI + (dir < 0 ? 180 : 0);
+  whale.setAttribute('transform', `translate(${a.x} ${a.y}) rotate(${ang - 90}) scale(${0.27 / s}) translate(-50 -50)`);
+  // Barra: el fluke baja con la ballena y se resalta la parada más cercana.
+  railWhale.style.top = railY(l) + 'px';
+  railWhale.classList.toggle('up', dir < 0);
+  const txt = readout(l, dir);
+  if (live.textContent !== txt) live.textContent = txt;
+  let on = null;
+  for (const st of stops) if (Math.abs(st.L - l) < 250 && (!on || Math.abs(st.L - l) < Math.abs(on.L - l))) on = st;
+  for (const st of stops) {
+    st.el.classList.toggle('on', st === on);
+    st.dot.classList.toggle('on', st === on);
+    st.dot.setAttribute('r', st === on ? 5 / s : 2.5); // el activo mide lo mismo en pantalla con cualquier zoom
+  }
+};
+const queue = () => { if (!ticking) { ticking = true; requestAnimationFrame(frame); } };
+addEventListener('scroll', queue, { passive: true });
+addEventListener('resize', () => { layoutStops(); queue(); });
+frame();
+</script>
+</body>
+</html>
