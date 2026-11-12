@@ -44,7 +44,7 @@ env:
   NODE_VERSION: 22
   PNPM_VERSION: 10.13.1
   RUST_TOOLCHAIN: nightly-2026-03-01
-  CARGO_XWIN_VERSION: 0.20.2
+  CARGO_XWIN_VERSION: 0.23.1
 
 jobs:
   build:
@@ -123,7 +123,7 @@ jobs:
         with:
           tool: cargo-xwin
           git: https://github.com/rust-cross/cargo-xwin
-          rev: 635a9559d49d719e79e0f60d92eb44447faf3212 # v0.20.2
+          rev: cb1c19572bd64c801f45c6fc96e234ccb0d5acc5 # v0.23.1
 
       - name: Install Tauri CLI
         uses: taiki-e/cache-cargo-install-action@34ce5120836e5f9f1508d8713d7fdea0e8facd6f # v3.0.1
