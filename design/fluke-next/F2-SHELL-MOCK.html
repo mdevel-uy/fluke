@@ -1,0 +1,545 @@
+<title>Fluke Shell Mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: una superficie (transcript) + rail angosto sin bordes; todo lo demás es overlay de dos paneles.
+   Look comprometido a un solo mundo (terminal oscuro), con una sola tinta de acento intercambiable. */
+:root{
+  --page:#07060d; --ink:#0b0916; --tint:#13112b; --raise:#171433; --line:#2a2447;
+  --fg:#dcd9ec; --dim:#8c88a8; --faint:#59537f;
+  --ac:#ff3db8;
+  --ok:#9be564; --warn:#ffcc4d; --err:#ff6b6b;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Consolas,monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+  --fs:13px; --lh:20px; --rows:36;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--page);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:20px 48px;margin:0}
+.page{max-width:1180px;margin-inline:auto;display:flex;flex-direction:column;gap:18px}
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+.top h1{font:600 20px/1.2 var(--mono);margin:0;letter-spacing:-.01em}
+.top p{margin:4px 0 0;color:var(--dim);font-size:14px;max-width:62ch}
+.ctl{display:flex;flex-wrap:wrap;gap:10px 18px;font:400 12px var(--mono);color:var(--dim)}
+.grp{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.grp>span{text-transform:uppercase;letter-spacing:.08em;font-size:11px;margin-right:2px}
+button{font:inherit;cursor:pointer}
+.ctl button,.ovbtn{background:transparent;color:var(--dim);border:1px solid var(--line);padding:3px 9px;border-radius:2px}
+.ctl button:hover,.ovbtn:hover{color:var(--fg);border-color:var(--faint)}
+.ctl button[aria-pressed="true"]{color:var(--fg);border-color:var(--ac);background:color-mix(in srgb,var(--ac) 14%,transparent)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.ovbar{display:flex;flex-wrap:wrap;gap:8px;font:400 12px var(--mono)}
+.ovbtn kbd{color:var(--ac);font:inherit;margin-right:6px}
+
+.holder{overflow-x:auto;border:1px solid var(--line);background:var(--ink)}
+.term{position:relative;width:calc(var(--cols)*1ch);margin-inline:auto;height:calc(var(--rows)*var(--lh));
+  font:400 var(--fs)/var(--lh) var(--mono);background:var(--ink);color:var(--fg);display:flex;flex-direction:column;overflow:hidden}
+.term[data-accent="cyan"]{--ac:#35e6ff}
+.term[data-cols="140"]{--cols:140}
+.term[data-cols="100"]{--cols:100}
+.term[data-cols="72"]{--cols:72}
+.d{color:var(--dim)} .f{color:var(--faint)} .a{color:var(--ac)} .ok{color:var(--ok)} .wn{color:var(--warn)} .er{color:var(--err)} .b{font-weight:600}
+.sp{flex:1}
+
+/* header: una línea */
+.hdr{display:flex;gap:2ch;padding-inline:1ch;height:var(--lh);white-space:nowrap;overflow:hidden;border-bottom:1px solid var(--line)}
+.hdr .l,.hdr .r{display:flex;gap:2ch;align-items:baseline}
+.hdr .l{flex:1;min-width:0;overflow:hidden}
+.hdr .sep{color:var(--faint)}
+.term[data-cols="100"] .h2,.term[data-cols="72"] .h2{display:none}
+.term[data-cols="72"] .h3{display:none}
+
+.main{flex:1;min-height:0;display:flex}
+.tx{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;padding:0 2ch 0 1ch}
+.msg{display:flex;flex-direction:column;margin-top:var(--lh)}
+.msg .who{font-weight:600}
+.you{border-left:2px solid var(--faint);padding-left:1ch;color:var(--fg)}
+.you .who{color:var(--dim)}
+.blk{background:var(--tint);color:var(--dim);padding:0 1ch;margin-top:var(--lh);display:flex;justify-content:space-between;gap:2ch}
+.ev{color:var(--dim);margin-top:var(--lh)}
+.flt{border-left:2px solid var(--ac);padding-left:1ch;margin-top:var(--lh)}
+.flt .t{font-weight:600}
+.plan{display:grid;grid-template-columns:4ch 24ch 24ch 1fr;margin:0;color:var(--dim)}
+.plan .id{color:var(--fg)}
+.act{display:flex;gap:2ch;margin-top:0}
+.act span{color:var(--ac);cursor:pointer}
+.act span:hover{text-decoration:underline}
+
+.rail{width:30ch;flex:none;padding:0 1ch 0 2ch;overflow:hidden;border-left:1px solid var(--line)}
+.term[data-cols="100"] .rail{width:26ch}
+.term[data-cols="72"] .rail{display:none}
+.rail h4{margin:var(--lh) 0 0;font:600 var(--fs)/var(--lh) var(--mono);color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.rail h4:first-child{margin-top:0}
+.rr{display:flex;justify-content:space-between;gap:1ch;white-space:nowrap}
+.rr .n{overflow:hidden;text-overflow:ellipsis}
+.rr.cur{color:var(--fg)}
+.rr.cur .n::before{content:'▸ ';color:var(--ac)}
+.rr:not(.cur) .n::before{content:'  '}
+.done{color:var(--faint);text-decoration:line-through}
+
+.strip{display:none;padding:0 1ch;border-top:1px solid var(--line);color:var(--dim);white-space:nowrap;overflow:hidden}
+.term[data-cols="72"] .strip,.term[data-cols="100"].strip-on .strip{display:flex;gap:2ch}
+
+/* agents card sobre el prompt */
+.agents{margin:0 1ch;border:1px solid var(--line);padding:0 1ch}
+.agents .hd{display:flex;justify-content:space-between;color:var(--dim)}
+.agents .hd b{color:var(--ac);font-weight:600}
+.ar{display:grid;grid-template-columns:2ch minmax(0,1fr) 20ch 6ch 11ch 8ch;column-gap:1ch;white-space:nowrap}
+.ar>*{overflow:hidden;text-overflow:ellipsis}
+.ar .r{text-align:right;color:var(--dim)}
+.term[data-cols="100"] .ar{grid-template-columns:2ch minmax(0,1fr) 6ch 11ch 8ch}
+.term[data-cols="100"] .ar .m{display:none}
+.term[data-cols="72"] .ar{grid-template-columns:2ch minmax(0,1fr) 8ch}
+.term[data-cols="72"] .ar .m,.term[data-cols="72"] .ar .tk,.term[data-cols="72"] .ar .cs{display:none}
+
+.pr{margin:0 1ch;border:1px solid var(--line);padding:0 1ch;display:flex;align-items:center;gap:1ch;height:calc(var(--lh)*2 + 2px);}
+.pr .pt{color:var(--ac);white-space:nowrap}
+.pr .pt i{font-style:normal;color:var(--dim)}
+.pr input{flex:1;min-width:0;background:transparent;border:0;color:var(--fg);font:inherit;outline:none;padding:0}
+.pr input::placeholder{color:var(--faint)}
+.pr:focus-within{border-color:var(--ac)}
+.keys{display:flex;justify-content:space-between;gap:2ch;padding:0 1ch;color:var(--dim);white-space:nowrap;overflow:hidden;height:var(--lh)}
+.keys kbd{color:var(--fg);font:inherit}
+.term[data-cols="72"] .k2{display:none}
+
+/* overlays */
+.ov{position:absolute;inset:0;background:var(--ink);display:flex;flex-direction:column;z-index:5}
+.ov .bar{display:flex;justify-content:space-between;padding:0 1ch;color:var(--dim);border-bottom:1px solid var(--line);height:var(--lh)}
+.ov .bar b{color:var(--ac);font-weight:600}
+.panes{flex:1;min-height:0;display:flex}
+.list{width:36ch;flex:none;border-right:1px solid var(--line);padding:0;overflow:hidden}
+.li{display:flex;justify-content:space-between;gap:1ch;padding:0 1ch;white-space:nowrap;cursor:pointer}
+.li .n{overflow:hidden;text-overflow:ellipsis}
+.li:hover{background:var(--tint)}
+.li.sel{background:color-mix(in srgb,var(--ac) 18%,transparent)}
+.li.sel .n::before{content:'▸ ';color:var(--ac)}
+.li:not(.sel) .n::before{content:'  '}
+.lh{padding:0 1ch;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-top:var(--lh);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lh:first-child{margin-top:0}
+.det{flex:1;min-width:0;padding:0 2ch;overflow:hidden}
+.det h3{margin:0;font:600 var(--fs)/var(--lh) var(--mono)}
+.det .sec{margin-top:var(--lh);color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.ck{display:grid;grid-template-columns:2ch minmax(0,1fr) auto;gap:0 1ch}
+.ck .ev2{color:var(--dim);text-align:right;white-space:nowrap}
+.diff{background:var(--tint);padding:0 1ch;white-space:pre;overflow:hidden}
+.diff .p{color:var(--ok)} .diff .m{color:var(--err)} .diff .h{color:var(--ac)}
+.mr{display:grid;grid-template-columns:10ch 24ch 18ch minmax(0,1fr);column-gap:1ch;white-space:nowrap}
+.ut{display:grid;grid-template-columns:22ch 12ch 12ch minmax(0,1fr);column-gap:1ch;white-space:nowrap}
+.ut .r{text-align:right}
+.term[data-cols="72"] .mr{grid-template-columns:8ch 20ch minmax(0,1fr)}
+.term[data-cols="72"] .mr>:nth-child(4){display:none}
+.term[data-cols="72"] .ut{grid-template-columns:18ch 8ch minmax(0,1fr)}
+.term[data-cols="72"] .ut>:nth-child(4){display:none}
+.hint{padding:0 1ch;color:var(--dim);border-top:1px solid var(--line);height:var(--lh);white-space:nowrap;overflow:hidden}
+.hint kbd{color:var(--fg);font:inherit}
+.term[data-cols="72"] .list{width:26ch}
+.term[data-cols="72"] .det{padding:0 1ch}
+
+/* paleta */
+.pal{padding:0 1ch}
+.pal .q{display:flex;gap:1ch;align-items:center;height:var(--lh)}
+.pal input{flex:1;background:transparent;border:0;outline:none;color:var(--fg);font:inherit;padding:0}
+.pal input::placeholder{color:var(--faint)}
+.pal .gh{color:var(--ac);font-weight:600;margin-top:var(--lh)}
+.pal .li{padding:0 2ch}
+.pal .li .kk{color:var(--dim)}
+.pal .li.sel{background:color-mix(in srgb,var(--ac) 18%,transparent)}
+.pal .li .n::before{content:''}
+.pal .li.sel .n{color:var(--fg)}
+
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px 28px;font-size:14px;color:var(--dim)}
+.notes h2{grid-column:1/-1;margin:0;font:600 13px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--fg)}
+.notes p{margin:0}
+.notes b{color:var(--fg);font-weight:600}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="page">
+  <div class="top">
+    <div>
+      <h1>Fluke Shell · F2</h1>
+      <p>Mock de la pantalla de proyecto con la conversación como superficie. Probá las teclas: <b>alt+K</b>, <b>F1</b>, <b>F3</b>, <b>F4</b>, <b>F7</b>, <b>Esc</b>, o escribí <b>/</b> en el prompt.</p>
+    </div>
+    <div class="ctl">
+      <div class="grp"><span>Ancho</span>
+        <button data-cols="140" aria-pressed="true">140 col</button>
+        <button data-cols="100" aria-pressed="false">100 col</button>
+        <button data-cols="72" aria-pressed="false">72 col</button></div>
+      <div class="grp"><span>Acento</span>
+        <button data-accent="magenta" aria-pressed="true">magenta</button>
+        <button data-accent="cyan" aria-pressed="false">cian</button></div>
+      <div class="grp"><span>Prompt</span>
+        <button id="tgWork" aria-pressed="false">Fluke trabajando</button></div>
+    </div>
+  </div>
+
+  <div class="ovbar" id="ovbar">
+    <button class="ovbtn" data-ov="palette"><kbd>alt+K</kbd>Paleta</button>
+    <button class="ovbtn" data-ov="projects"><kbd>F1</kbd>Proyectos</button>
+    <button class="ovbtn" data-ov="workers"><kbd>F3</kbd>Workers</button>
+    <button class="ovbtn" data-ov="decisions"><kbd>F4</kbd>Decisiones</button>
+    <button class="ovbtn" data-ov="review"><kbd>F7</kbd>Revisión</button>
+    <button class="ovbtn" data-ov="usage"><kbd>alt+U</kbd>Conexiones y consumo</button>
+  </div>
+
+  <div class="holder">
+  <div class="term" id="term" data-cols="140" data-accent="magenta">
+    <div class="hdr">
+      <div class="l">
+        <span class="a b">≋ fluke</span><span class="sep">⟡</span>
+        <span>atlas-console</span><span class="sep h3">⟡</span><span class="d h3">main</span>
+        <span class="sep h2">⟡</span><span class="d h2">orquestador claude · opus-4.5 · auto</span>
+      </div>
+      <div class="r">
+        <span class="d">workers <span style="color:var(--fg)">2/4</span></span>
+        <span class="d h2">uso <span style="color:var(--fg)">claude 62%</span></span>
+        <span class="d h3">ctx <span class="a">▰▰▰</span><span class="f">▱▱</span> 38%</span>
+        <span class="wn">⚑ 2</span>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="tx">
+        <div class="msg"><span class="who a">Fluke</span>
+          <span>Acordamos exportar los datos del proyecto a JSON. Dividí el trabajo en cuatro tareas y</span>
+          <span>propongo el reparto: lo mecánico en deepseek (barato), la redacción en sonnet y la</span>
+          <span>verificación en opus, otra familia que quien escribió. Aprobás el plan, aprobás el reparto.</span>
+          <div class="plan" style="margin-top:var(--lh)">
+            <span class="id">T1</span><span>Exportación JSON</span><span class="a">deepseek · v4-flash</span><span>sin dependencias</span>
+            <span class="id">T2</span><span>Documentación CLI</span><span class="a">claude · sonnet-4.5</span><span>espera T1</span>
+            <span class="id">T3</span><span>Ejemplo de uso</span><span class="a">deepseek · v4-flash</span><span>espera T2</span>
+            <span class="id">T4</span><span>Verificación final</span><span class="a">claude · opus-4.5</span><span>espera T2, T3</span>
+          </div>
+        </div>
+        <div class="blk"><span>⌖ leí spec/export.md · plan.json · cmd/root.go</span><span class="f">ctrl+o ampliar</span></div>
+        <div class="msg you"><span class="who">tú</span>
+          <span>dale, pero que T3 incluya un ejemplo con datos reales del repo</span></div>
+        <div class="msg"><span class="who a">Fluke</span>
+          <span>Eso cambia el alcance de T3: lo registré como enmienda #4 y T3 queda en espera hasta que lo apruebes.</span>
+          <div class="act"><span>[aprobar]</span><span>[editar]</span><span>[descartar]</span></div>
+        </div>
+        <div class="ev"><span class="ok">✓</span> T1 entregada · 4 archivos +187 −3 · 12 tests ok <span class="f">· w1 libre</span></div>
+        <div class="flt"><span class="t wn">⚑ Revisión pendiente</span> <span class="d">· T1 Exportación JSON · aceptación 3/3 con evidencia</span><br><span class="d">F7 para revisar · [a] aceptar · [c] pedir cambios</span></div>
+      </div>
+
+      <aside class="rail">
+        <h4>Proyectos</h4>
+        <div class="rr cur"><span class="n">atlas-console</span><span><span class="d">1/5</span> <span class="wn">⚑1</span></span></div>
+        <div class="rr d"><span class="n">billing</span><span>◐ 1/4</span></div>
+        <div class="rr d"><span class="n">web-app</span><span class="ok">✓ 5/5</span></div>
+        <div class="rr d"><span class="n">infra</span><span>⏸ pausado</span></div>
+        <h4>Plan · atlas</h4>
+        <div class="d" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Exportar datos del proyecto</div>
+        <div class="rr done"><span>✓ T0 Esquema de datos</span></div>
+        <div class="rr"><span class="n"><span class="wn">◉</span> T1 Exportación JSON</span></div>
+        <div class="rr"><span class="n"><span class="a">◐</span> T2 Documentación</span><span class="d">w2</span></div>
+        <div class="rr d"><span class="n">⊘ T3 Ejemplo de uso</span></div>
+        <div class="rr d"><span class="n">○ T4 Verificación</span></div>
+        <h4>Atención</h4>
+        <div class="rr"><span class="n"><span class="wn">⚑</span> T1 lista para revisar</span></div>
+        <div class="rr"><span class="n"><span class="wn">?</span> enmienda #4 alcance T3</span></div>
+        <div class="rr d"><span class="n">billing · PR #212 checks ✓</span></div>
+      </aside>
+    </div>
+
+    <div class="strip"><span class="a">atlas</span><span>T2 ◐</span><span class="wn">⚑ 2</span><span class="d">plan 1/5</span><span class="sp"></span><span class="d">F1 proyectos</span></div>
+
+    <div class="agents" id="agents">
+      <div class="hd"><span><b>≋ Workers</b> · 2 activos · 1 lista para revisar</span><span>cupo 2/4 · global</span></div>
+      <div class="ar"><span class="a">◐</span><span class="n">atlas ▸ T2 Documentación CLI</span><span class="m d">claude · sonnet-4.5</span><span class="tk r">41k</span><span class="cs r">≈$0.31 sub</span><span class="r">3m12s</span></div>
+      <div class="ar"><span class="a">◐</span><span class="n">billing ▸ T4 Tests e2e</span><span class="m d">openai · gpt-5.5</span><span class="tk r">88k</span><span class="cs r">≈$0.74 sub</span><span class="r">6m40s</span></div>
+      <div class="ar"><span class="wn">◉</span><span class="n">atlas ▸ T1 Exportación JSON</span><span class="m d">deepseek · v4-flash</span><span class="tk r">62k</span><span class="cs r">$0.02</span><span class="r wn">revisar</span></div>
+    </div>
+
+    <div class="pr">
+      <span class="pt" id="ptag">≋ <i id="plabel">esperando</i></span>
+      <input id="prompt" type="text" placeholder="hablá con Fluke, o / para comandos" autocomplete="off" aria-label="Mensaje para Fluke">
+    </div>
+    <div class="keys"><span id="keysL"><kbd>F1</kbd> proyectos <kbd>F3</kbd> workers <kbd>F4</kbd> decisiones <kbd>F7</kbd> revisión</span><span class="k2"><kbd>alt+k</kbd> paleta · <kbd>/</kbd> comandos · <kbd>esc</kbd></span></div>
+
+    <div class="ov" id="ov" hidden></div>
+  </div>
+  </div>
+
+  <div class="notes">
+    <h2>Qué mirar</h2>
+    <p><b>La conversación es la pantalla.</b> El plan, los proyectos y la atención viven en un rail sin marcos; no hay que ir a otra vista para saber qué pasa.</p>
+    <p><b>Header de una línea.</b> Proyecto, modelo del orquestador, cupo global de workers, contexto y atención. Con poco ancho se retira primero lo secundario.</p>
+    <p><b>Workers sobre el prompt.</b> Columnas alineadas; con menos ancho caen modelo, tokens y costo, en ese orden. El tiempo se conserva.</p>
+    <p><b>Overlays de dos paneles.</b> F1/F3/F4/F7 abren encima del chat con lista a la izquierda y detalle a la derecha. Esc vuelve sin perder nada.</p>
+    <p><b>Revisión con evidencia primero.</b> La aceptación y sus pruebas van antes del diff, como ya decidieron en RETHINK.</p>
+    <p><b>Varias conexiones, un reparto visible.</b> El orquestador propone el modelo de cada tarea dentro del plan (acá, deepseek para lo mecánico y opus para verificar) y vos aprobás plan y reparto juntos.</p>
+    <p><b>Consumo sin maquillaje (alt+U).</b> Cuota de la suscripción, estimado de lo que gastó Fluke y facturación se muestran por separado. Un dato que no existe dice «sin dato», nunca 0.</p>
+    <p><b>Una sola tinta.</b> El acento marca selección y títulos; amarillo, verde y rojo quedan solo para estados.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $=function(s,r){return (r||document).querySelector(s)}, $$=function(s,r){return [].slice.call((r||document).querySelectorAll(s))};
+  var term=$('#term'), ov=$('#ov'), input=$('#prompt');
+  var esc=function(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;')};
+
+  /* ---------- datos de overlays ---------- */
+  function mt(p){var f=Math.round(p/100*16),c=p>=95?'er':p>=80?'wn':'a';return '<span class="'+c+'">'+'▰'.repeat(f)+'</span><span class="f">'+'▱'.repeat(16-f)+'</span> '+p+'%'}
+  function mrow(w,p,r,n){return '<div class="mr"><span class="d">'+w+'</span><span>'+mt(p)+'</span><span class="d">'+r+'</span><span class="wn">'+(n||'')+'</span></div>'}
+  function urow(a,b,c,d){return '<div class="ut"><span>'+a+'</span><span class="r">'+b+'</span><span class="r">'+c+'</span><span class="d">'+d+'</span></div>'}
+  var FOOT='<div class="d" style="margin-top:var(--lh)">≈ costo equivalente según el catálogo de tarifas. No es una factura ni indica cuánto queda de tu plan.</div>';
+
+  var DATA={
+    usage:{title:'Conexiones y consumo',key:'alt+u',hint:'<kbd>↑↓</kbd> mover · <kbd>a</kbd> agregar conexión · <kbd>r</kbd> actualizar cuotas · <kbd>e</kbd> habilitar / deshabilitar · <kbd>esc</kbd> cerrar',
+      groups:[{h:'Resumen',items:[
+        {n:'Todas las conexiones',m:'<span class="wn">62%</span>',d:
+          '<h3>Consumo por conexión</h3><div class="d">datos de ejemplo</div>'+
+          '<div class="sec">Suscripciones</div>'+
+          '<div>Claude Max</div>'+mrow('  5 h',62,'reinicia en 1h48')+mrow('  semana',34,'reinicia en 4d')+
+          '<div>ChatGPT Plus</div>'+mrow('  5 h',18,'reinicia en 3h12','⚠ dato de hace 12 min')+mrow('  semana',9,'reinicia en 5d')+
+          '<div class="sec">Pago por uso</div>'+
+          '<div>DeepSeek API <span class="d">· sin cuota · saldo no consultado</span></div>'+
+          '<div class="sec">Lo que usó Fluke hoy</div>'+
+          urow('<span class="d">modelo</span>','<span class="d">tokens</span>','<span class="d">estimado</span>','<span class="d">usado por</span>')+
+          urow('claude · opus-4.5','214k','≈$3.10 sub','orquestador')+
+          urow('claude · sonnet-4.5','41k','≈$0.31 sub','atlas T2')+
+          urow('openai · gpt-5.5','88k','≈$0.74 sub','billing T4')+
+          urow('deepseek · v4-flash','1.2M','$0.41','atlas T0, T1')+FOOT},
+      ]},{h:'Conexiones',items:[
+        {n:'Claude Max',m:'<span class="wn">62%</span> 5 h',d:
+          '<h3>Claude Max</h3><div class="d">suscripción · sesión del Claude Code local</div>'+
+          '<div class="sec">Estado</div><div><span class="ok">✓</span> autenticada · modelos opus-4.5, sonnet-4.5</div>'+
+          '<div class="sec">Cuota</div>'+mrow('5 h',62,'reinicia en 1h48')+mrow('semana',34,'reinicia en 4d')+
+          '<div class="d">fuente: cabeceras de la última respuesta · hace 40 s · <span class="ok">fresca</span></div>'+
+          '<div class="sec">Habilitada para</div><div>orquestador · redacción y análisis · verificación</div>'+
+          '<div class="sec">Si se agota</div><div>Fluke pausa los despachos a esta conexión y te avisa. No pasa sola a pago por uso.</div>'},
+        {n:'ChatGPT Plus',m:'<span class="d">18%</span> 5 h',d:
+          '<h3>ChatGPT Plus</h3><div class="d">suscripción · sesión del Codex local</div>'+
+          '<div class="sec">Estado</div><div><span class="ok">✓</span> autenticada · modelo gpt-5.5</div>'+
+          '<div class="sec">Cuota</div>'+mrow('5 h',18,'reinicia en 3h12')+mrow('semana',9,'reinicia en 5d')+
+          '<div class="d">fuente: consulta de cuotas · hace 12 min · <span class="wn">desactualizada</span> · reintenta cada 5 min</div>'+
+          '<div class="sec">Habilitada para</div><div>workers de tests y revisión de código</div>'},
+        {n:'DeepSeek API',m:'<span class="d">pago por uso</span>',d:
+          '<h3>DeepSeek API</h3><div class="d">clave de API · guardada fuera del estado de Fluke</div>'+
+          '<div class="sec">Estado</div><div><span class="ok">✓</span> última solicitud aceptada hace 1 min · modelo v4-flash</div>'+
+          '<div class="sec">Cuota</div><div class="wn">sin dato</div><div class="d">Esta conexión no informa saldo. Fluke solo muestra lo que consumió él.</div>'+
+          '<div class="sec">Consumo de Fluke · hoy</div>'+
+          urow('v4-flash','1.2M tokens','$0.41','estimado por tarifa')+FOOT+
+          '<div class="sec">Habilitada para</div><div>escritura mecánica · exploración</div>'},
+        {n:'＋ Agregar conexión',m:'',d:
+          '<h3>Agregar conexión</h3>'+
+          '<div class="sec">Cómo se conecta</div>'+
+          '<div><span class="a">[1]</span> Suscripción: inicia sesión el propio CLI (Claude Code, Codex)</div>'+
+          '<div><span class="a">[2]</span> Clave de API: DeepSeek, OpenAI, Anthropic, compatibles</div>'+
+          '<div><span class="a">[3]</span> Punto de acceso propio: gateway o servidor local</div>'+
+          '<div class="d" style="margin-top:var(--lh)">Fluke nunca guarda el secreto en su estado. Cada conexión muestra qué modelo está configurado y cuál se usó de verdad.</div>'}
+      ]},{h:'Reparto',items:[
+        {n:'Quién hace qué',m:'',d:
+          '<h3>Reparto de modelos</h3><div class="d">el orquestador propone en el plan; vos aprobás</div>'+
+          '<div class="sec">Roles</div>'+
+          urow('<span class="d">rol</span>','<span class="d">conexión</span>','<span class="d">modelo</span>','<span class="d">origen</span>')+
+          urow('orquestador','Claude Max','opus-4.5','elegido por vos')+
+          urow('escritura mecánica','DeepSeek','v4-flash','propuesto y aprobado')+
+          urow('redacción y análisis','Claude Max','sonnet-4.5','propuesto y aprobado')+
+          urow('verificación','Claude Max','opus-4.5','otra familia que el escritor')+
+          '<div class="sec">Reglas</div>'+
+          '<div>· Cada tarea muestra su modelo en el plan antes de arrancar.</div>'+
+          '<div>· Un worker solo usa conexiones que habilitaste.</div>'+
+          '<div>· Ventana agotada: pausa y avisa, no cambia de cuenta.</div>'+
+          '<div>· Cambiar el modelo de una tarea en curso es una acción visible.</div>'}
+      ]}]},
+    projects:{title:'Proyectos',key:'F1',hint:'<kbd>↑↓</kbd> mover · <kbd>Enter</kbd> abrir · <kbd>n</kbd> nuevo · <kbd>o</kbd> abrir repo · <kbd>esc</kbd> cerrar',
+      groups:[{h:'Activos',items:[
+        {n:'atlas-console',m:'<span class="wn">⚑ 2</span>',d:
+          '<h3>atlas-console</h3><div class="d">C:\\repos\\atlas-console · main</div>'+
+          '<div class="sec">Objetivo</div><div>Exportar datos del proyecto a JSON, documentado y con ejemplo verificable.</div>'+
+          '<div class="sec">Estado</div><div>1 integrada · 1 para revisar · 1 en curso · 2 esperando</div><div class="d">workers 1 de este proyecto · último cambio hace 40 s</div>'+
+          '<div class="sec">Atención</div><div><span class="wn">⚑</span> T1 lista para revisar</div><div><span class="wn">?</span> enmienda #4 al alcance de T3</div>'},
+        {n:'billing',m:'<span class="d">◐ 1/4</span>',d:
+          '<h3>billing</h3><div class="d">C:\\repos\\billing · feat/invoices</div>'+
+          '<div class="sec">Objetivo</div><div>Facturas en PDF con numeración correlativa.</div>'+
+          '<div class="sec">Estado</div><div>1 integrada · 1 en curso (T4 tests e2e) · 2 esperando</div>'+
+          '<div class="sec">GitHub</div><div>PR #212 · checks <span class="ok">✓</span> · revisión pendiente de otra persona</div>'},
+        {n:'web-app',m:'<span class="ok">✓ 5/5</span>',d:
+          '<h3>web-app</h3><div class="d">C:\\repos\\web-app · main</div>'+
+          '<div class="sec">Estado</div><div class="ok">Todo integrado.</div><div class="d">Sin workers ni decisiones pendientes.</div>'}
+      ]},{h:'En pausa',items:[
+        {n:'infra',m:'<span class="d">⏸</span>',d:
+          '<h3>infra</h3><div class="d">C:\\repos\\infra · main</div>'+
+          '<div class="sec">Estado</div><div>Pausado por vos hace 2 días.</div><div class="d">Barra espaciadora o paleta → Reanudar proyecto.</div>'}
+      ]}]},
+    workers:{title:'Workers',key:'F3',hint:'<kbd>↑↓</kbd> mover · <kbd>Enter</kbd> entrar a la sesión · <kbd>m</kbd> mensaje · <kbd>p</kbd> pausar · <kbd>z</kbd> maximizar · <kbd>esc</kbd> cerrar',
+      groups:[{h:'Ejecutando',items:[
+        {n:'atlas ▸ T2 Documentación',m:'<span class="a">◐</span> 3m12s',d:
+          '<h3>T2 Documentación CLI</h3><div class="d">claude · sonnet-4.5 · rama fluke/t2-docs · .fluke/wt/t2</div>'+
+          '<div class="sec">Sesión en vivo</div>'+
+          '<div class="diff"><span class="d">worker&gt;</span> Leo export/export.go para describir el esquema.\n<span class="f">⌖ read  export/export.go</span>\n<span class="f">⌖ read  docs/export.md</span>\n<span class="f">⌖ write docs/cli.md</span>\nEstoy armando la sección «fluke export --format json»\ncon los flags --out y --pretty.\n<span class="a">▌</span></div>'+
+          '<div class="sec">Acciones</div><div><span class="a">[m]</span> mensaje al worker  <span class="a">[Enter]</span> entrar  <span class="a">[p]</span> pausar</div>'},
+        {n:'billing ▸ T4 Tests e2e',m:'<span class="a">◐</span> 6m40s',d:
+          '<h3>T4 Tests e2e</h3><div class="d">openai · gpt-5.5 · rama fluke/t4-e2e · .fluke/wt/t4</div>'+
+          '<div class="sec">Sesión en vivo</div>'+
+          '<div class="diff"><span class="d">worker&gt;</span> Corro la suite e2e contra el servidor de prueba.\n<span class="f">⌖ bash  go test ./e2e -run Invoice</span>\n<span class="p">ok</span>   billing/e2e  4.812s\n<span class="f">⌖ bash  go test ./e2e -run Numbering</span>\n<span class="a">▌</span></div>'}
+      ]},{h:'Lista / espera',items:[
+        {n:'atlas ▸ T1 Exportación',m:'<span class="wn">◉</span> revisar',d:
+          '<h3>T1 Exportación JSON</h3><div class="d">deepseek · v4-flash · entregada hace 40 s · worker libre</div>'+
+          '<div class="sec">Siguiente</div><div>F7 para revisar la entrega con su evidencia.</div>'},
+        {n:'atlas ▸ T3 Ejemplo de uso',m:'<span class="d">⊘ espera T2</span>',d:
+          '<h3>T3 Ejemplo de uso</h3><div class="d">sin worker asignado</div>'+
+          '<div class="sec">Bloqueo</div><div>Depende de T2 y de la enmienda #4 (alcance).</div>'}
+      ]}]},
+    decisions:{title:'Decisiones',key:'F4',hint:'<kbd>↑↓</kbd> mover · <kbd>Enter</kbd> responder · <kbd>e</kbd> corregir · <kbd>esc</kbd> cerrar',
+      groups:[{h:'Esperan tu decisión',items:[
+        {n:'#4 Alcance de T3',m:'<span class="wn">⚑</span>',d:
+          '<h3>#4 · T3 con datos reales del repo</h3><div class="d">atlas-console · pedido tuyo, hace 2 min</div>'+
+          '<div class="sec">Qué cambia</div><div>T3 pasa de «ejemplo sintético» a «ejemplo generado desde este repositorio».</div>'+
+          '<div class="sec">Alternativas</div>'+
+          '<div><span class="a">[a] Aprobar</span> · T3 sigue con el nuevo alcance. T4 espera igual.</div>'+
+          '<div><span class="a">[b] Editar</span> · ajustás el texto antes de que T3 arranque.</div>'+
+          '<div><span class="a">[c] Descartar</span> · T3 mantiene el ejemplo sintético original.</div>'},
+        {n:'#3 Integrar T1 tras revisar',m:'<span class="wn">⚑</span>',d:
+          '<h3>#3 · Integrar T1 después de revisar</h3><div class="d">atlas-console · pregunta de Fluke</div>'+
+          '<div class="sec">Contexto</div><div>La entrega está lista. El merge lo decidís vos.</div>'+
+          '<div class="sec">Alternativas</div>'+
+          '<div><span class="a">[a] Integrar</span> · verifico el merge local; T2 y T3 se liberan.</div>'+
+          '<div><span class="a">[b] Esperar</span> · queda lista; las dependientes siguen en espera.</div>'}
+      ]},{h:'Resueltas',items:[
+        {n:'#2 Formato de salida',m:'<span class="ok">✓</span>',d:
+          '<h3>#2 · Formato de salida</h3><div class="d">resuelta por vos · hace 1 h</div>'+
+          '<div class="sec">Respuesta</div><div>JSON con indentación opcional (--pretty).</div>'+
+          '<div class="sec">Usada por</div><div>T1, T2 · se cita en sus reportes.</div>'}
+      ]}]},
+    review:{title:'Revisión',key:'F7',hint:'<kbd>↑↓</kbd> tarea · <kbd>ctrl+j/k</kbd> diff · <kbd>a</kbd> aceptar · <kbd>c</kbd> pedir cambios · <kbd>p</kbd> preparar PR · <kbd>esc</kbd> cerrar',
+      groups:[{h:'atlas-console · fluke/t1-export',items:[
+        {n:'T1 Exportación JSON',m:'<span class="wn">◉</span> 3/3',d:
+          '<h3>T1 Exportación JSON</h3><div class="d">deepseek · v4-flash · fluke/t1-export · entregada hace 40 s</div>'+
+          '<div class="sec">Verificación</div><div>T4 la verifica en <span class="a">claude · opus-4.5</span>, otra familia que quien escribió.</div>'+
+          '<div class="sec">Aceptación y evidencia</div>'+
+          '<div class="ck"><span class="ok">✓</span><span>Exporta JSON válido del proyecto</span><span class="ev2">go test ./export · 12/12</span></div>'+
+          '<div class="ck"><span class="ok">✓</span><span>Documenta el esquema</span><span class="ev2">docs/export.md +41</span></div>'+
+          '<div class="ck"><span class="ok">✓</span><span>Incluye ejemplo verificable</span><span class="ev2">examples/export.json · jq ok</span></div>'+
+          '<div class="sec">Cambios · 4 archivos +187 −3</div>'+
+          '<div class="diff"><span class="h">@@ export/export.go @@</span>\n<span class="p">+package export</span>\n<span class="p">+</span>\n<span class="p">+// Project writes the project as JSON to w.</span>\n<span class="p">+func Project(w io.Writer, p *model.Project, pretty bool) error {</span>\n<span class="p">+    enc := json.NewEncoder(w)</span>\n<span class="m">-    return nil</span>\n<span class="p">+    if pretty { enc.SetIndent("", "  ") }</span>\n<span class="p">+    return enc.Encode(p)</span></div>'},
+        {n:'T0 Esquema de datos',m:'<span class="ok">✓</span> integrada',d:
+          '<h3>T0 Esquema de datos</h3><div class="d">integrada en main hace 1 h</div><div class="sec">Nada que revisar.</div>'}
+      ]},{h:'billing · fluke/t4-e2e',items:[
+        {n:'T4 Tests e2e',m:'<span class="d">◐ en curso</span>',d:
+          '<h3>T4 Tests e2e</h3><div class="d">aún sin entrega</div><div class="sec">Estado</div><div>El worker sigue ejecutando; avisa cuando esté lista.</div>'}
+      ]}]}
+  };
+
+  var PAL=[
+    {g:'Navegación',n:'Proyectos',k:'F1',go:'projects'},
+    {g:'Navegación',n:'Workers y sesiones',k:'F3',go:'workers'},
+    {g:'Navegación',n:'Decisiones y alcance',k:'F4',go:'decisions'},
+    {g:'Navegación',n:'Revisar entrega',k:'F7',go:'review'},
+    {g:'Navegación',n:'Conexiones y consumo',k:'alt+u',go:'usage'},
+    {g:'Proyecto',n:'Pausar tarea seleccionada',k:'p'},
+    {g:'Proyecto',n:'Pausar proyecto',k:'space'},
+    {g:'Proyecto',n:'Enviar mensaje a un worker',k:'m'},
+    {g:'Proyecto',n:'Cambiar objetivo o alcance'},
+    {g:'Sesión',n:'Autonomía del orquestador · Normal / Auto / Amplia'},
+    {g:'Sesión',n:'Cupo global de workers'},
+    {g:'Configuración',n:'Agente y modelo',go:'usage'},
+    {g:'Configuración',n:'Conexiones y cuentas',go:'usage'},
+    {g:'Configuración',n:'GitHub'},
+    {g:'Configuración',n:'Tema y acento'},
+    {g:'Configuración',n:'Texto y fuente'}
+  ];
+
+  /* ---------- estado ---------- */
+  var S={ov:null,sel:0,palSel:0,palQ:''};
+  var flat=function(o){var a=[];o.groups.forEach(function(g){g.items.forEach(function(i){a.push(i)})});return a};
+
+  function palFiltered(){var q=S.palQ.toLowerCase();return PAL.filter(function(p){return !q||(p.n+' '+p.g).toLowerCase().indexOf(q)>-1})}
+
+  function render(){
+    if(!S.ov){ov.hidden=true;ov.innerHTML='';return}
+    ov.hidden=false;
+    if(S.ov==='palette'){
+      var list=palFiltered(), h='', last='';
+      if(S.palSel>=list.length)S.palSel=Math.max(0,list.length-1);
+      list.forEach(function(p,i){
+        if(p.g!==last){h+='<div class="gh">'+p.g+'</div>';last=p.g}
+        h+='<div class="li'+(i===S.palSel?' sel':'')+'" data-pi="'+i+'"><span class="n">'+p.n+'</span><span class="kk">'+(p.k||'')+'</span></div>';
+      });
+      if(!list.length)h='<div class="d" style="margin-top:var(--lh)">Sin resultados para «'+esc(S.palQ)+'».</div>';
+      ov.innerHTML='<div class="bar"><b>Comandos</b><span>esc</span></div>'+
+        '<div class="pal" style="flex:1;overflow:hidden"><div class="q"><span class="a">›</span><input id="palIn" placeholder="buscar vistas, acciones y ajustes" value="'+esc(S.palQ)+'" aria-label="Buscar comando"></div>'+h+'</div>'+
+        '<div class="hint">escribí para buscar · <kbd>↑↓</kbd> mover · <kbd>Enter</kbd> ejecutar · <kbd>esc</kbd> cerrar</div>';
+      var pi=$('#palIn');pi.focus();pi.setSelectionRange(pi.value.length,pi.value.length);
+      return;
+    }
+    var o=DATA[S.ov], items=flat(o), idx=0, l='';
+    if(S.sel>=items.length)S.sel=0;
+    o.groups.forEach(function(g){
+      l+='<div class="lh">'+g.h+'</div>';
+      g.items.forEach(function(it){
+        l+='<div class="li'+(idx===S.sel?' sel':'')+'" data-i="'+idx+'"><span class="n">'+it.n+'</span><span>'+it.m+'</span></div>';idx++;
+      });
+    });
+    ov.innerHTML='<div class="bar"><span><b>'+o.title+'</b> <span class="f">· '+o.key+'</span></span><span>esc cerrar</span></div>'+
+      '<div class="panes"><div class="list">'+l+'</div><div class="det">'+items[S.sel].d+'</div></div>'+
+      '<div class="hint">'+o.hint+'</div>';
+  }
+
+  function open(n){S.ov=n;S.sel=0;S.palSel=0;S.palQ='';input.blur();render()}
+  function close(){S.ov=null;render()}
+
+  /* ---------- eventos ---------- */
+  ov.addEventListener('click',function(e){
+    var li=e.target.closest('.li');if(!li)return;
+    if(S.ov==='palette'){S.palSel=+li.dataset.pi;run()}else{S.sel=+li.dataset.i;render()}
+  });
+  ov.addEventListener('input',function(e){if(e.target.id==='palIn'){S.palQ=e.target.value;S.palSel=0;render()}});
+
+  function run(){
+    var p=palFiltered()[S.palSel];if(!p)return;
+    if(p.go){open(p.go)}else{close();var k=$('#keysL');var prev=k.innerHTML;k.innerHTML='<span class="a">(mock)</span> '+p.n;setTimeout(function(){k.innerHTML=prev},2200)}
+  }
+
+  document.addEventListener('keydown',function(e){
+    var map={F1:'projects',F3:'workers',F4:'decisions',F7:'review'};
+    if(map[e.key]){e.preventDefault();open(map[e.key]);return}
+    if(e.altKey&&e.key.toLowerCase()==='k'){e.preventDefault();open('palette');return}
+    if(e.altKey&&e.key.toLowerCase()==='u'){e.preventDefault();open('usage');return}
+    if(e.key==='Escape'&&S.ov){e.preventDefault();close();return}
+    if(!S.ov)return;
+    var down=e.key==='ArrowDown'||(e.key==='j'&&S.ov!=='palette'), up=e.key==='ArrowUp'||(e.key==='k'&&S.ov!=='palette');
+    if(S.ov==='palette'){
+      var n=palFiltered().length;
+      if(down){e.preventDefault();S.palSel=Math.min(n-1,S.palSel+1);render()}
+      else if(up){e.preventDefault();S.palSel=Math.max(0,S.palSel-1);render()}
+      else if(e.key==='Enter'){e.preventDefault();run()}
+      return;
+    }
+    var m=flat(DATA[S.ov]).length;
+    if(down){e.preventDefault();S.sel=Math.min(m-1,S.sel+1);render()}
+    else if(up){e.preventDefault();S.sel=Math.max(0,S.sel-1);render()}
+  });
+
+  input.addEventListener('input',function(){if(input.value==='/'){input.value='';open('palette')}});
+
+  $$('[data-ov]').forEach(function(b){b.addEventListener('click',function(){open(b.dataset.ov)})});
+  $$('[data-cols]').forEach(function(b){b.addEventListener('click',function(){
+    term.dataset.cols=b.dataset.cols;
+    $$('[data-cols]',$('.ctl')).forEach(function(x){x.setAttribute('aria-pressed',x===b)});
+  })});
+  $$('[data-accent]').forEach(function(b){b.addEventListener('click',function(){
+    term.dataset.accent=b.dataset.accent;
+    $$('[data-accent]').forEach(function(x){x.setAttribute('aria-pressed',x===b)});
+  })});
+
+  /* estado del prompt */
+  var spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏', si=0, tm=null, t0=0;
+  var still=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  $('#tgWork').addEventListener('click',function(){
+    var on=this.getAttribute('aria-pressed')!=='true';
+    this.setAttribute('aria-pressed',on);
+    clearInterval(tm);
+    var lab=$('#plabel'), tag=$('#ptag');
+    if(!on){lab.textContent='esperando';tag.firstChild.nodeValue='≋ ';return}
+    t0=Date.now();
+    var tick=function(){var s=Math.floor((Date.now()-t0)/1000);tag.firstChild.nodeValue=(still?'◐':spin[si++%spin.length])+' ';lab.textContent='Fluke trabaja · '+s+'s · 1 en cola'};
+    tick();if(!still)tm=setInterval(tick,120);
+  });
+})();
+</script>
